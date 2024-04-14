@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<head>    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    
+        <script>
+            L_NO_TOUCH = false;
+            L_DISABLE_3D = false;
+        </script>
+    
+    <style>html, body {width: 100%;height: 100%;margin: 0;padding: 0;}</style>
+    <style>#map {position:absolute;top:0;bottom:0;right:0;left:0;}</style>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_f7dcdc105ec741abb42111bc895a1b8a {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+            </style>
+        
+</head>
+<body>    
+    
+            <div class="folium-map" id="map_f7dcdc105ec741abb42111bc895a1b8a" ></div>
+        
+</body>
+<script>    
+    
+            var map_f7dcdc105ec741abb42111bc895a1b8a = L.map(
+                "map_f7dcdc105ec741abb42111bc895a1b8a",
+                {
+                    center: [7.983, -75.2],
+                    crs: L.CRS.EPSG3857,
+                    zoom: 6.48,
+                    zoomControl: true,
+                    preferCanvas: false,
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_6c240e01195249cf83bb12347cf670e3 = L.tileLayer(
+                "https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png",
+                {"attribution": "\u0026copy; \u003ca href=\"http://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"http://cartodb.com/attributions\"\u003eCartoDB\u003c/a\u003e, CartoDB \u003ca href =\"http://cartodb.com/attributions\"\u003eattributions\u003c/a\u003e", "detectRetina": false, "maxNativeZoom": 18, "maxZoom": 18, "minZoom": 0, "noWrap": false, "opacity": 1, "subdomains": "abc", "tms": false}
+            ).addTo(map_f7dcdc105ec741abb42111bc895a1b8a);
+        
+    
+            var marker_84e51f76af7f40618246a67112ca0fd9 = L.marker(
+                [6.189, -67.485],
+                {}
+            ).addTo(map_f7dcdc105ec741abb42111bc895a1b8a);
+        
+    
+            var marker_8dae69d3e1cb4c39b83b37cd923446ba = L.marker(
+                [12.583, -81.706],
+                {}
+            ).addTo(map_f7dcdc105ec741abb42111bc895a1b8a);
+        
+    
+            var marker_2656a7630d28432ea32e6cf6d13e7fd2 = L.marker(
+                [7.489, -71.285],
+                {}
+            ).addTo(map_f7dcdc105ec741abb42111bc895a1b8a);
+        
+    
+            var div_icon_edc07b6828da4e1d94f31084c6634f77 = L.divIcon({"className": "empty", "html": "\u003cdiv style=\"font-family: Georgia;\nfont-size: 19px;\nfont-style: normal;\nfont-weight: bold;\ntext-decoration: none;\ntext-transform: none;\ncolor: #000000;\nfont-variant: small-caps;\n\";class=\"container\"\u003e\u003cp\u003ePuerto Carre\u00f1o\u003c/p\u003e\u003c/div\u003e", "iconAnchor": [0, 0], "iconSize": [200, 10]});
+            marker_2656a7630d28432ea32e6cf6d13e7fd2.setIcon(div_icon_edc07b6828da4e1d94f31084c6634f77);
+        
+    
+            var marker_c53b77c112b648b0b0d46b0f527d1796 = L.marker(
+                [13.283, -81.206],
+                {}
+            ).addTo(map_f7dcdc105ec741abb42111bc895a1b8a);
+        
+    
+            var div_icon_ef9d0288b10e48b7989a42f143dd5b29 = L.divIcon({"className": "empty", "html": "\u003cdiv style=\"font-family: Georgia;\nfont-size: 19px;\nfont-style: normal;\nfont-weight: bold;\ntext-decoration: none;\ntext-transform: none;\ncolor: #000000;\nfont-variant: small-caps;\n\";class=\"container\"\u003e\u003cp\u003eSan Andr\u00e9s\u003c/p\u003e\u003c/div\u003e", "iconAnchor": [0, 0], "iconSize": [200, 10]});
+            marker_c53b77c112b648b0b0d46b0f527d1796.setIcon(div_icon_ef9d0288b10e48b7989a42f143dd5b29);
+        
+</script>
