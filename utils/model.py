@@ -28,195 +28,316 @@ def create_model(data_model):
     ## -- VIDA UTIL DEL PROYECTO -- ## 
     model.lifeyears = Param(initialize = data_model["lifeyears"])
 
-    ## -- SETS FIJOS -- ## 
-    T = range(1,data_model["load"]["len"]+1)  
-    model.T= Set(initialize=T) #LLamando los indices del dataframe
-    model.PVT = Set(initialize=data_model["pv_modules"]["type"].columns.tolist())
-    model.BATT= Set(initialize=data_model["batteries"]["type"].columns.tolist())
-    model.CH = Set(initialize=data_model["inverters"]["type"].columns.tolist())
     
-    ## -- PARÁMETROS DE PANELES, BATERÍAS E INVERSORES -- ## 
-    model.PVtype = Param(data_model["pv_modules"]["type"].index.to_list(), model.PVT, initialize = create_dict(data_model["pv_modules"]["type"]), domain = Any)
-    model.Battype = Param(data_model["batteries"]["type"].index.to_list(), model.BATT, initialize = create_dict(data_model["batteries"]["type"]), domain = Any)
-    model.ConH = Param(data_model["inverters"]["type"].index.to_list(), model.CH, initialize = create_dict(data_model["inverters"]["type"]), domain = Any)
+    """
+    -----------------------------------------------------------------------------------------
+            ----------SETS FIJOS----------
+    -----------------------------------------------------------------------------------------
+    """ 
+    T = range(1,data_model["load"]["len"]+1)     
+    model.T = Set(initialize=T)
+    model.pv_u = Set(initialize=data_model["pv_modules"]["type"].columns.tolist())
+    model.bat_u= Set(initialize=data_model["batteries"]["type"].columns.tolist())
+    model.ch_u = Set(initialize=data_model["inverters"]["type"].columns.tolist())
+    model.boi_u = Set(initialize=data_model["boilers"]["type"].columns.tolist())
+    
+   
+    """
+    -----------------------------------------------------------------------------------------
+            ----------PARÁMETROS CARACTERÍSTICAS TÉCNICAS DE LOS EQUIPOS----------
+    -----------------------------------------------------------------------------------------
+    """ 
+    model.pv_f = Param(data_model["pv_modules"]["type"].index.to_list(), model.pv_u, initialize = create_dict(data_model["pv_modules"]["type"]), domain = Any)
+    model.bat_f = Param(data_model["batteries"]["type"].index.to_list(), model.bat_u, initialize = create_dict(data_model["batteries"]["type"]), domain = Any)
+    model.ch_f = Param(data_model["inverters"]["type"].index.to_list(), model.ch_u, initialize = create_dict(data_model["inverters"]["type"]), domain = Any)
+    model.boi_f = Param(data_model["boilers"]["type"].index.to_list(), model.boi_u, initialize = create_dict(data_model["boilers"]["type"]), domain = Any)
 
-    ## -- GENERACIÓN DE POTENCIA DURANTE CADA PASO DE TIEMPO POR MÓDULO FOTOVOLTAICO -- ## 
+    """
+    -----------------------------------------------------------------------------------------
+    ----------GENERACIÓN DE POTENCIA MÓDULOS FOTOVOLTAICOS----------
+    -----------------------------------------------------------------------------------------
+    """      
     data_model["pv_modules"]["Pmpp"].index = T
-    model.P_mpp = Param(model.T, model.PVT, initialize = create_dict(data_model["pv_modules"]["Pmpp"]))
+    model.p_pv_gen = Param(model.T, model.pv_u, initialize = create_dict(data_model["pv_modules"]["Pmpp"]))
 
-    ## -- PARÁMETRO DE CARGA -- ## 
-    model.Carga = Param(model.T, initialize= T_dict(T, data_model["load"]["value"]))
-
-
-    ## -- ENERGÍA NO SUMINISTRADA -- ## 
-    model.ENS = Var(model.T, domain=NonNegativeReals) # Variable energía no suministrada
     
-    if data_model["ENS"]["active"]:        
-        if data_model["ENS"]["type"] == "fixed":            
-            model.Price_ENS = Param(model.T, initialize= T_dict(T, np.repeat(data_model["ENS"]["value"], len(T))))
-        elif data_model["ENS"]["type"] == "variable":
-            model.Price_ENS = Param(model.T, initialize= T_dict(T, data_model["ENS"]["value"]))
+    """
+    -----------------------------------------------------------------------------------------
+    ----------PERFIL DE CARGA ELÉCTRICA----------
+    -----------------------------------------------------------------------------------------
+    """       
+    model.load_el = Param(model.T, initialize= T_dict(T, data_model["load"]["value"]))
+
+
+    """
+    -----------------------------------------------------------------------------------------
+            ----------ENERGÍA NO SUMINISTRADA----------
+    -----------------------------------------------------------------------------------------
+    """    
+    model.ENS_EL = Var(model.T, domain=NonNegativeReals) # Variable energía no suministrada
+    
+    if data_model["ENS_EL"]["active"]:        
+        if data_model["ENS_EL"]["type"] == "fixed":            
+            model.Price_ENS = Param(model.T, initialize= T_dict(T, np.repeat(data_model["ENS_EL"]["value"], len(T))))
+        elif data_model["ENS_EL"]["type"] == "variable":
+            model.Price_ENS = Param(model.T, initialize= T_dict(T, data_model["ENS_EL"]["value"]))
     else:
         model.Price_ENS = Param(model.T, initialize= T_dict(T, np.repeat(0, len(T))))
         def None_ENS(m,t):
-            return m.ENS[t] == 0
+            return m.ENS_EL[t] == 0
         model.None_ENS = Constraint(model.T, rule=None_ENS)    
 
     
-
-    ## -- PARÁMETROS Y VARIABLES DE RED PRINCIPAL -- ## 
-    model.PGL = Var(model.T, domain=NonNegativeReals)                              # Potencia de la red electrovichada a la carga    
-    model.PpvG = Var(model.CH, model.T, domain=NonNegativeReals)                        # Potencia del panel dirigida a la red   
-    model.PGB = Var(model.CH, model.BATT, model.T, domain=NonNegativeReals)                        # Potencia de la red electrovichada a la bateria
-    model.PTG = Var(model.T, domain=NonNegativeReals)                        # Potencia de la turbina a la red
+    """
+    -----------------------------------------------------------------------------------------
+            ----------PARÁMETROS Y VARIABLES RED ELÉCTRICA----------
+    -----------------------------------------------------------------------------------------
+    """   
+    model.PEL_G_L = Var(model.T, domain=NonNegativeReals)                              # VARIABLE Potencia de la red eléctrica a la carga eléctrica
+    model.PEL_PV_L = Var(model.ch_u, model.T, domain=NonNegativeReals)                 # VARIABLE Potencia de los PV a la red eléctrica
+    model.PEL_G_B = Var(model.ch_u, model.bat_u, model.T, domain=NonNegativeReals)     # VARIABLE Potencia de la red eléctrica a las bateria
+    model.PEL_T_G = Var(model.T, domain=NonNegativeReals)                              # VARIABLE Potencia de las turbinas eólicas a la red eléctrica
+    
     if data_model["grid"]["active"]:
 
-        model.MaxPGrid = Param(initialize = data_model["grid"]["pmax_buy"])
-        model.MaxPpvG = Param(initialize = data_model["grid"]["pmax_sell"])
+        model.max_p_grid_el_buy = Param(initialize = data_model["grid"]["pmax_buy"])   # PARÁMETRO Potencia máxima de compra de la red eléctrica
+        model.max_p_grid_el_sell = Param(initialize = data_model["grid"]["pmax_sell"]) # PARÁMETRO Potencia máxima de venta a la red eléctrica
 
+        # PARÁMETRO Disponibilidad de la red eléctrica
         if data_model["grid"]["av"]["active"]:
-            model.GridAv = Param(model.T, initialize = T_dict(T, data_model["grid"]["av"]["value"])) 
+            model.grid_el_av = Param(model.T, initialize = T_dict(T, data_model["grid"]["av"]["value"])) 
         else:
-            model.GridAv = Param(model.T, initialize = T_dict(T, np.repeat(1, len(T)))) 
+            model.grid_el_av = Param(model.T, initialize = T_dict(T, np.repeat(1, len(T)))) 
 
+        # RESTRICCIÓN Balance y potencia límite de compra red eléctrica
         def PG_lim_rule(m,t):
-            return m.PGL[t] + sum(m.PGB[tch,tb,t] for tb in m.BATT for tch in m.CH) <= m.GridAv[t]*m.MaxPGrid
+            return m.PEL_G_L[t] + sum(m.PEL_G_B[tch,tb,t] for tb in m.bat_u for tch in m.ch_u) <= m.grid_el_av[t]*m.max_p_grid_el_buy
         model.PG_lim=Constraint(model.T,rule=PG_lim_rule)
         
+        # RESTRICCIÓN Balance y potencia límite de venta red eléctrica
         def PpvG_lim_rule(m,t):
-            return sum(m.PpvG[tch,t] for tch in m.CH) + m.PTG[t] <= m.GridAv[t]*m.MaxPpvG
+            return sum(m.PEL_PV_L[tch,t] for tch in m.ch_u) + m.PEL_T_G[t] <= m.grid_el_av[t]*m.max_p_grid_el_sell
         model.PpvG_lim=Constraint(model.T,rule=PpvG_lim_rule)
 
+        # PARÁMETRO Precio de compra de energía de la red eléctrica
         if data_model["grid"]["buy_price"]["type"] == "fixed":
-            model.Price_Grid = Param(model.T, initialize = T_dict(T, np.repeat(data_model["grid"]["buy_price"]["value"], len(T)))) 
+            model.price_buy_grid_el = Param(model.T, initialize = T_dict(T, np.repeat(data_model["grid"]["buy_price"]["value"], len(T)))) 
         elif data_model["grid"]["buy_price"]["type"] == "variable":
-            model.Price_Grid = Param(model.T, initialize = T_dict(T, data_model["grid"]["buy_price"]["value"])) 
+            model.price_buy_grid_el = Param(model.T, initialize = T_dict(T, data_model["grid"]["buy_price"]["value"])) 
         
-        
+        # PARÁMETRO Precio de venta de energía de la red eléctrica
         if data_model["grid"]["sell_price"]["type"] == "fixed":
-            model.Ppvusd = Param(model.T, initialize= T_dict(T, np.repeat(data_model["grid"]["sell_price"]["value"], len(T)))) 
+            model.price_sell_grid_el = Param(model.T, initialize= T_dict(T, np.repeat(data_model["grid"]["sell_price"]["value"], len(T)))) 
         elif data_model["grid"]["sell_price"]["type"] == "variable":
-            model.Ppvusd  = Param(model.T, initialize = T_dict(T, data_model["grid"]["sell_price"]["value"])) 
+            model.price_sell_grid_el  = Param(model.T, initialize = T_dict(T, data_model["grid"]["sell_price"]["value"])) 
 
-    else:
-        model.Price_Grid = Param(model.T, initialize = T_dict(T, np.repeat(0, len(T)))) 
-        model.Ppvusd = Param(model.T, initialize= T_dict(T, np.repeat(0, len(T)))) 
+    else:        
+        # PARÁMETRO NULO Precio de compra de energía de la red eléctrica
+        model.price_buy_grid_el = Param(model.T, initialize = T_dict(T, np.repeat(0, len(T))))     
+        # PARÁMETRO NULO Precio de venta de energía de la red eléctrica
+        model.price_sell_grid_el = Param(model.T, initialize= T_dict(T, np.repeat(0, len(T))))   
 
+        # RESTRICCIÓN NULA Balance variables de la red eléctrica
         def None_grid(m,t):
-            return m.PGL[t] + sum(m.PGB[tch,tb,t] for tb in m.BATT for tch in m.CH) + sum(m.PpvG[tch,t] for tch in m.CH) + m.PTG[t] == 0
+            return m.PEL_G_L[t] + sum(m.PEL_G_B[tch,tb,t] for tb in m.bat_u for tch in m.ch_u) + sum(m.PEL_PV_L[tch,t] for tch in m.ch_u) + m.PEL_T_G[t] == 0
         model.None_grid=Constraint(model.T,rule=None_grid)
 
+    
+    """
+    -----------------------------------------------------------------------------------------
+            ----------PARÁMETROS Y VARIABLES DE TURBINAS EÓLICAS----------
+    -----------------------------------------------------------------------------------------
+    """
+    # VARIABLE Número de turbinas eólicas
+    model.X_WT = Var(model.wt_u, domain=NonNegativeIntegers)    
+    # VARIABLE Potencia de las turbinas eólicas a la carga eléctrica                       
+    model.PEL_WT_L = Var(model.T, domain=NonNegativeReals)   
+    # VARIABLE Potencia de las turbinas eólicas a las baterías                                      
+    model.PEL_WT_B = Var(model.ch_u, model.bat_u, model.T, domain=NonNegativeReals)          
+    # VARIABLE Potencia de las turbinas eólicas recortada            
+    model.PEL_WT_CUR = Var(model.T, domain=NonNegativeReals)                          
 
-    ## -- PARÁMETROS Y VARIABLES DE TURBINAS EÓLICAS -- ## 
     if data_model["windgen"]["active"]:
-        model.WT = Set(initialize=data_model["windgen"]["type"].columns.tolist())
-        model.WT_gen = Param(model.T, model.WT, initialize = create_dict(data_model["windgen"]["generation"]))
-        model.Windtype = Param(data_model["windgen"]["type"].index.to_list(), model.WT, initialize = create_dict(data_model["windgen"]["type"]), domain = Any)
+        
+        # SET Tecnologías de turbinas eólicas
+        model.wt_u = Set(initialize=data_model["windgen"]["type"].columns.tolist())   
+        # PARÁMETRO Características tecnologías de turbinas eólicas
+        model.wt_f = Param(data_model["windgen"]["type"].index.to_list(), model.wt_u, initialize = create_dict(data_model["windgen"]["type"]), domain = Any)
+        # PARÁMETRO Generación de turbinas eólicas
+        model.p_wt_gen = Param(model.T, model.wt_u, initialize = create_dict(data_model["windgen"]["generation"]))        
 
-        model.XT = Var(model.WT, domain=NonNegativeIntegers)
-        model.PTL = Var(model.T, domain=NonNegativeReals)                        # Potencia de la turbina a la carga
-        model.PTB = Var(model.CH, model.BATT, model.T, domain=NonNegativeReals)                        # Potencia de la turbina a la batería
-        model.PTCur = Var(model.T, domain=NonNegativeReals)                      # Potencia de la turbina no utilizada
-
+        # RESTRICCIÓN Balance de potencia turbinas eólicas
         def WT_balance_rule(m,t):
-            return m.PTL[t] + m.PTG[t] + sum(m.PTB[tch,tb,t] for tch in model.CH for tb in m.BATT) + model.PTCur[t] == sum(model.XT[tt]*m.WT_gen[t,tt] for tt in model.WT)
+            return (
+                m.PEL_WT_L[t] + m.PEL_T_G[t] + sum(m.PEL_WT_B[tch,tb,t] for tch in model.ch_u for tb in m.bat_u) + 
+                model.PEL_WT_CUR[t] 
+                    == 
+                sum(model.X_WT[tt]*m.p_wt_gen[t,tt] for tt in model.wt_u)
+            )
         model.WT_balance_rule=Constraint(model.T,rule=WT_balance_rule)
 
     else:
-        model.WT = Set(initialize=["None"])
-        WT_none_df = pd.DataFrame(index=["C_inst", "C_OM_y"], data={"None":[0,0]})
-        model.Windtype = Param(WT_none_df.index.to_list(), model.WT, initialize = create_dict(WT_none_df), domain = Any)
+        # SET NULO Tecnologías de turbinas eólicas
+        model.wt_u = Set(initialize=["None"])
 
-        model.XT = Var(model.WT, domain=NonNegativeIntegers)
-        model.PTL = Var(model.T, domain=NonNegativeReals)                        # Potencia de la turbina a la carga
-        model.PTB = Var(model.CH, model.BATT, model.T, domain=NonNegativeReals)                        # Potencia de la turbina a la batería
-        model.PTCur = Var(model.T, domain=NonNegativeReals)                      # Potencia de la turbina no utilizada
-        
+        # PARÁMETRO NULO Características tecnologías de turbinas eólicas
+        WT_none_df = pd.DataFrame(index=["C_inst", "C_OM_y"], data={"None":[0,0]})
+        model.wt_f = Param(WT_none_df.index.to_list(), model.wt_u, initialize = create_dict(WT_none_df), domain = Any)
+
+        # RESTRICCIÓN NULA Balance de potencia turbinas eólicas               
         def None_WT(m,t):
-            return m.PTL[t] + m.PTG[t] + sum(m.PTB[tch,tb,t] for tch in model.CH for tb in m.BATT) + model.PTCur[t] == 0
+            return m.PEL_WT_L[t] + m.PEL_T_G[t] + sum(m.PEL_WT_B[tch,tb,t] for tch in model.ch_u for tb in m.bat_u) + model.PEL_WT_CUR[t] == 0
         model.None_WT = Constraint(model.T, rule=None_WT)
         
+        # RESTRICCIÓN NULA Número de turbinas eólicas 
         def None_WT_num(m,tt):
-            return m.XT[tt] == 0
-        model.None_WT_num = Constraint(model.WT, rule=None_WT_num)
+            return m.X_WT[tt] == 0
+        model.None_WT_num = Constraint(model.wt_u, rule=None_WT_num)
 
-        
-    ## -- PARÁMETROS Y VARIABLES DEL GENERADOR DE RESPALDO -- ## 
+
+    """
+    -----------------------------------------------------------------------------------------
+            ----------PARÁMETROS Y VARIABLES DEL GENERADOR DE RESPALDO----------
+    -----------------------------------------------------------------------------------------
+    """ 
+    model.PEL_D_L = Var(model.T, domain=NonNegativeReals)
+    model.PEL_D_B = Var(model.ch_u, model.bat_u, model.T, domain=NonNegativeReals)                           
+    model.Y_D = Var(model.T, within=Binary)     
+
     if data_model["generator"]["active"]:
 
-        model.FuelCost = Param(initialize = data_model["generator"]["fuel_cost"])
-        model.GenCost = Param(initialize = data_model["generator"]["gen_cost"])
-        model.GenPmax = Param(initialize = data_model["generator"]["pmax"])
-        model.GenFmin = Param(initialize = data_model["generator"]["fmin"])
-        model.GenFmax = Param(initialize = data_model["generator"]["fmax"])
-        model.GenFm = Param(initialize = data_model["generator"]["fm"])
-        model.GenOMCost = Param(initialize = data_model["generator"]["gen_OM_cost"])
-        model.GenMinLoad = Param(initialize = (data_model["generator"]["min_p_load"]/100))
-                            
-        model.PDL = Var(model.T, domain=NonNegativeReals)
-        model.PDB = Var(model.CH, model.BATT, model.T, domain=NonNegativeReals)                           
-        model.GenOn = Var(model.T, within=Binary)        
+        model.d_fuel_cost = Param(initialize = data_model["generator"]["fuel_cost"])
+        model.d_cost_inst = Param(initialize = data_model["generator"]["gen_cost"])
+        model.d_p_max = Param(initialize = data_model["generator"]["pmax"])
+        model.d_f_min = Param(initialize = data_model["generator"]["fmin"])
+        model.d_f_max = Param(initialize = data_model["generator"]["fmax"])
+        model.d_fm = Param(initialize = data_model["generator"]["fm"])
+        model.d_cost_om = Param(initialize = data_model["generator"]["gen_OM_cost"])
+        model.d_min_load_porc = Param(initialize = (data_model["generator"]["min_p_load"]/100))          
 
         if data_model["generator"]["av"]["active"]:
-            model.DieselAv = Param(model.T, initialize = T_dict(T, data_model["generator"]["av"]["value"]))
+            model.d_av = Param(model.T, initialize = T_dict(T, data_model["generator"]["av"]["value"]))
         else:
-            model.DieselAv = Param(model.T, initialize = T_dict(T, np.repeat(1, len(T)))) 
+            model.d_av = Param(model.T, initialize = T_dict(T, np.repeat(1, len(T)))) 
         
-        # Restricción Potencia diesel
+        # RESTRICCIÓN Límite superior potencia generador diesel
         def PD_lim_rule1(m,t):#
-            return m.PDL[t] + sum(m.PDB[tch,tb,t] for tch in model.CH for tb in m.BATT) <= m.GenOn[t]*(m.GenPmax*m.DieselAv[t])
+            return m.PEL_D_L[t] + sum(m.PEL_D_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u) <= m.Y_D[t]*(m.d_p_max*m.d_av[t])
         model.PD_lim1=Constraint(model.T,rule=PD_lim_rule1)
 
+        # RESTRICCIÓN Límite inferior potencia generador diesel
         def PD_lim_rule2(m,t):#
-            return m.PDL[t] + sum(m.PDB[tch,tb,t] for tch in model.CH for tb in m.BATT) >= m.GenOn[t]*(m.GenMinLoad*m.GenPmax*m.DieselAv[t])
+            return m.PEL_D_L[t] + sum(m.PEL_D_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u) >= m.Y_D[t]*(m.d_min_load_porc*m.d_p_max*m.d_av[t])
         model.PD_lim2=Constraint(model.T,rule=PD_lim_rule2)
-
 
     else:
         
-        model.FuelCost = Param(initialize = 0)
-        model.GenCost = Param(initialize = 0)
-        model.GenPmax = Param(initialize = 0)
-        model.GenFmin = Param(initialize = 0)
-        model.GenFmax = Param(initialize = 0)
-        model.GenFm = Param(initialize = 0)
-        model.GenOMCost = Param(initialize = 0)
-        model.GenMinLoad = Param(initialize = 0)
+        model.d_fuel_cost = Param(initialize = 0)
+        model.d_cost_inst = Param(initialize = 0)
+        model.d_p_max = Param(initialize = 0)
+        model.d_f_min = Param(initialize = 0)
+        model.d_f_max = Param(initialize = 0)
+        model.d_fm = Param(initialize = 0)
+        model.d_cost_om = Param(initialize = 0)
+        model.d_min_load_porc = Param(initialize = 0)   
 
-        model.PDL = Var(model.T, domain=NonNegativeReals)
-        model.PDB = Var(model.CH, model.BATT, model.T, domain=NonNegativeReals)                               
-        model.GenOn = Var(model.T, within=Binary)  
+        # RESTRICCIÓN NULA Varible binaria generador diesel
+        def None_GenOn(m,t):
+            return m.Y_D[t] == 0
+        model.None_GenOn=Constraint(model.T,rule=None_GenOn)
+
+        # RESTRICCIÓN NULA Funcionamiento generador diesel
+        def None_Gen_fun(m,t):
+            return m.PEL_D_L[t] + sum(m.PEL_D_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u) == 0
+        model.None_Gen_fun = Constraint(model.T,rule=None_Gen_fun)   
+
+    """
+    -----------------------------------------------------------------------------------------
+            ----------PARÁMETROS Y VARIABLES DEL CALDERAS----------
+    -----------------------------------------------------------------------------------------
+    """
+    # VARIABLE Se instala la caldera
+    model.X_BOI = Var(model.boi_u, within=Binary)  
+    # VARIABLE Binaria, la caldera está en funcionamiento
+    model.Y_BOI = Var(model.T, model.boi_u, within=Binary) 
+    # VARIABLE Potencia primaria de gas hacia las calderas [kWpe]
+    model.PPE_GAS_BOI = Var(model.T, model.boi_u, domain=NonNegativeReals) 
+    # VARIABLE Potencia termica generada por las calderas [kWth]
+    model.PTH_BOI = Var(model.T, model.boi_u,domain=NonNegativeReals)
+    if data_model["boilers"]["active"]:
+
+        # RESTRICCIÓN Límite funcionamiento de caldera solo si se instala
+        def lim_y_boilers(m,t,tboi):
+            return m.Y_BOI[t,tboi] <= model.X_BOI[tboi]
+        model.lim_y_boilers = Constraint(model.T, model.boi_u, rule=lim_y_boilers)
+
+        # RESTRICCIÓN Límite superior de potencia de salida de la cladera
+        def max_p_boilers(m,t,tboi):
+            return m.PTH_BOI[t,tboi] <= m.boi_f['P_out',tboi]*m.Y_BOI[t,tboi]
+        model.max_p_boilers = Constraint(model.T, model.boi_u, rule=max_p_boilers)
+
+        # RESTRICCIÓN Límite inferior de potencia de salida de la cladera
+        def min_p_boilers(m,t,tboi):
+            return m.PTH_BOI[t,tboi] >= m.boi_f['P_min',tboi]*m.Y_BOI[t,tboi]
+        model.min_p_boilers = Constraint(model.T, model.boi_u, rule=min_p_boilers)
+
+        # RESTRICCIÓN Conversión a energía térmica considerando eficiencia
+        def efficiency_boilers(m,t,tboi):
+            return m.PTH_BOI[t,tboi] == m.boi_f['n',tboi]*m.PPE_GAS_BOI[t,tboi]
+        model.efficiency_boilers = Constraint(model.T, model.boi_u, rule=efficiency_boilers)
+
+    else:
+
+        # SET NULO Tecnologías de turbinas eólicas
+        model.boi_u = Set(initialize=["None"])
+
+        # PARÁMETRO NULO Características tecnologías de turbinas eólicas
+        BOI_none_df = pd.DataFrame(index=["C_inst", "C_OM_kWh"], data={"None":[0,0]})
+        model.boi_f = Param(BOI_none_df.index.to_list(), model.wt_u, initialize = create_dict(BOI_none_df), domain = Any)
+
+        # RESTRICCIÓN NULA Variables binarias caldera
+        def None_bin_boiler(m,tboi):
+            return m.Y_BOI[tboi] + model.X_BOI[tboi] == 0
+        model.None_bin_boiler = Constraint(model.boi_u, rule=None_bin_boiler)
         
-        def None_PD(m,t):#
-            return m.PDL[t] == 0
-        model.None_PD=Constraint(model.T,rule=None_PD)   
-
-        def None_GenOn(m,t):#
-            return m.GenOn[t] == 0
-        model.None_GenOn=Constraint(model.T,rule=None_GenOn)   
+        # RESTRICCIÓN NULA Funcionamiento caldera
+        def None_fun_boiler(m,t,tboi):
+            return m.PTH_BOI[t,tboi] + m.PPE_GAS_BOI[t,tboi] == 0
+        model.None_fun_boiler = Constraint(model.T, model.boi_u, rule=None_fun_boiler)
 
 
-    # Variables discretas
-    model.Xpvs  = Var(model.PVT, model.CH, domain=NonNegativeIntegers)      # Número de strings de paneles solares (1)
-    model.Xpv = Var(model.PVT, model.CH, domain=NonNegativeIntegers)        # Número de paneles solares (1)
-    model.XBs  = Var(model.BATT, model.CH, domain=NonNegativeIntegers)      # Número de strings de Baterías (1)
-    model.XB  = Var(model.BATT, model.CH, domain=NonNegativeIntegers)       # Número de Baterías (1)
-    model.XCh  = Var(model.PVT,model.BATT,model.CH, domain=NonNegativeIntegers)   # Número de inversores híbridos (1)
+    """
+    -----------------------------------------------------------------------------------------
+            ----------VARIABLES ENTERAS----------
+    -----------------------------------------------------------------------------------------
+    """
+    model.X_PVs  = Var(model.pv_u, model.ch_u, domain=NonNegativeIntegers)      # Número de strings de paneles solares 
+    model.X_PV = Var(model.pv_u, model.ch_u, domain=NonNegativeIntegers)        # Número de paneles solares
+    model.X_Bs  = Var(model.bat_u, model.ch_u, domain=NonNegativeIntegers)      # Número de strings de Baterías
+    model.X_B  = Var(model.bat_u, model.ch_u, domain=NonNegativeIntegers)       # Número de Baterías
+    model.X_CH  = Var(model.pv_u,model.bat_u,model.ch_u, domain=NonNegativeIntegers)   # Número de inversores híbridos
 
 
-    #Variables binarias/Toma de decisiones logicas (0,1)
-    model.Bceff = Var(model.CH, model.T, within=Binary)                                # Carga efectiva de baterías (1 = Carga) (0 = Descarga/stand-by) (2)
-    model.Bdeff = Var(model.CH, model.T, within=Binary)                                # Descarga efectiva de baterías (1 = Descarga) (0 = Carga/stand-by) (2)
-    model.Bxch = Var(model.PVT, model.BATT, model.CH, within=Binary)                           # Sólo un tipo de tecnología de baterías y paneles por inversor (1)
+    """
+    -----------------------------------------------------------------------------------------
+            ----------VARIABLES BINARIAS----------
+    -----------------------------------------------------------------------------------------
+    """
+    model.Y_B_carg = Var(model.ch_u, model.T, within=Binary)                                # load_el efectiva de baterías (1 = load_el) (0 = Descarga/stand-by)
+    model.Y_B_desc = Var(model.ch_u, model.T, within=Binary)                                # Descarga efectiva de baterías (1 = Descarga) (0 = load_el/stand-by)
+    model.Y_CH = Var(model.pv_u, model.bat_u, model.ch_u, within=Binary)                           # Sólo un tipo de tecnología de baterías y paneles por inversor
 
-    # Variables continuas
-    
-    model.PpvL = Var(model.CH, model.T, domain=NonNegativeReals)                        # Potencia del panel dirigida a la carga [kW] (2)
-    model.PpvCur = Var(model.CH, model.T, domain=NonNegativeReals)                      # Potencia recortada PV [kW] (2)    
-    model.PpvB = Var(model.CH, model.BATT, model.T, domain=NonNegativeReals)                  # Potencia del panel dirigida a los almacenadores [kW] (2)
-    model.PBL = Var(model.CH, model.BATT, model.T, domain=NonNegativeReals)                   # Potencia de los almacenadores dirigida a la carga [kW] (2)
-    model.SoC = Var(model.BATT, model.T, domain=NonNegativeReals)                       # Estado de carga de las baterías tipo [kWh] (2)
-    model.Bcap = Var(model.BATT, model.T, domain=NonNegativeReals)                      # Capacidad de las baterías tipo [kWh] (2)
+    """
+    -----------------------------------------------------------------------------------------
+            ----------VARIABLES CONTINUAS----------
+    -----------------------------------------------------------------------------------------
+    """    
+    model.PEL_PV_L = Var(model.ch_u, model.T, domain=NonNegativeReals)                        # Potencia del panel dirigida a la carga [kW] 
+    model.PEL_PV_CUR = Var(model.ch_u, model.T, domain=NonNegativeReals)                      # Potencia recortada PV [kW]   
+    model.PEL_PV_B = Var(model.ch_u, model.bat_u, model.T, domain=NonNegativeReals)                  # Potencia del panel dirigida a los almacenadores [kW]
+    model.PEL_B_L = Var(model.ch_u, model.bat_u, model.T, domain=NonNegativeReals)                   # Potencia de los almacenadores dirigida a la carga [kW]
+    model.SOC_B = Var(model.bat_u, model.T, domain=NonNegativeReals)                       # Estado de carga de las baterías tipo [kWh]
+    model.CAP_B = Var(model.bat_u, model.T, domain=NonNegativeReals)                      # Capacidad de las baterías tipo [kWh]
 
 
     
@@ -224,59 +345,59 @@ def create_model(data_model):
     ## -- ELEGIR UN SOLO INVERSOR -- ##
     if data_model["inverters"]["flex"]:
         def PV_BATT_onetype_CH(model,tch):
-            return sum(model.Bxch[tpv,tb,tch] for tpv in model.PVT for tb in model.BATT) == 1
-        model.PV_onetype_CH=Constraint(model.CH, rule=PV_BATT_onetype_CH)
+            return sum(model.Y_CH[tpv,tb,tch] for tpv in model.pv_u for tb in model.bat_u) == 1
+        model.PV_onetype_CH=Constraint(model.ch_u, rule=PV_BATT_onetype_CH)
     ## -- ELEGIR MÁS DE UN INVERSOR -- ##
     else:
         def PV_BATT_onetype_CH(model):
-            return sum(model.Bxch[tpv,tb,tch] for tpv in model.PVT for tb in model.BATT for tch in model.CH) == 1
+            return sum(model.Y_CH[tpv,tb,tch] for tpv in model.pv_u for tb in model.bat_u for tch in model.ch_u) == 1
         model.PV_onetype_CH=Constraint(rule=PV_BATT_onetype_CH)
 
     def Bxch_rule(model,tpv,tb,tch):#
-        return model.XCh[tpv,tb,tch] <= 10e3*model.Bxch[tpv,tb,tch]
-    model.Bxch_rule=Constraint(model.PVT, model.BATT, model.CH,rule=Bxch_rule)
+        return model.X_CH[tpv,tb,tch] <= 10e3*model.Y_CH[tpv,tb,tch]
+    model.Bxch_rule=Constraint(model.pv_u, model.bat_u, model.ch_u,rule=Bxch_rule)
     #----------------------------------------------------------------------#
 
     #----------------------------------------------------------------------#
     # Número de strings por tipo de panel e inversor
     def PV_string_rule(m,tpv,tch):#,t para todo t en T
-        return m.Xpvs[tpv, tch] <= sum(m.XCh[tpv,tb,tch] for tb in m.BATT)*int(m.ConH['Num_mpp',tch]*m.ConH['Num_in_mpp',tch]*np.floor(m.ConH['Idc_max_in',tch]/m.PVtype['Isc_STC',tpv]))
-    model.PV_string=Constraint(model.PVT, model.CH, rule=PV_string_rule)
+        return m.X_PVs[tpv, tch] <= sum(m.X_CH[tpv,tb,tch] for tb in m.bat_u)*int(m.ch_f['Num_mpp',tch]*m.ch_f['Num_in_mpp',tch]*np.floor(m.ch_f['Idc_max_in',tch]/m.pv_f['Isc_STC',tpv]))
+    model.PV_string=Constraint(model.pv_u, model.ch_u, rule=PV_string_rule)
 
     #Numero de paneles por tipo de panel e inversor
     def PV_num_rule1(m,tpv, tch):
-        return m.Xpv[tpv,tch] >= m.Xpvs[tpv, tch]*np.ceil(m.ConH['V_mpp_inf',tch]/m.PVtype['Vmp_STC',tpv])
-    model.PV_num_rule1=Constraint(model.PVT, model.CH, rule=PV_num_rule1)
+        return m.X_PV[tpv,tch] >= m.X_PVs[tpv, tch]*np.ceil(m.ch_f['V_mpp_inf',tch]/m.pv_f['Vmp_STC',tpv])
+    model.PV_num_rule1=Constraint(model.pv_u, model.ch_u, rule=PV_num_rule1)
 
     def PV_num_rule2(m,tpv, tch):
-        return m.Xpv[tpv,tch] <= m.Xpvs[tpv, tch]*np.floor(m.ConH['Vdc_max_in',tch]/m.PVtype['Voc_max',tpv])
-    model.PV_num_rule2=Constraint(model.PVT, model.CH, rule=PV_num_rule2)
+        return m.X_PV[tpv,tch] <= m.X_PVs[tpv, tch]*np.floor(m.ch_f['Vdc_max_in',tch]/m.pv_f['Voc_max',tpv])
+    model.PV_num_rule2=Constraint(model.pv_u, model.ch_u, rule=PV_num_rule2)
 
     def PV_num_rule3(m, tch):
-        return sum(m.Xpv[tpv,tch]*m.PVtype['P_stc',tpv]/1000 for tpv in m.PVT) <= sum(m.XCh[tpv,tb,tch] for tb in m.BATT for tpv in m.PVT)*m.ConH['P_max_pv',tch]
-    model.PV_num_rule3=Constraint(model.CH, rule=PV_num_rule3)
+        return sum(m.X_PV[tpv,tch]*m.pv_f['P_stc',tpv]/1000 for tpv in m.pv_u) <= sum(m.X_CH[tpv,tb,tch] for tb in m.bat_u for tpv in m.pv_u)*m.ch_f['P_max_pv',tch]
+    model.PV_num_rule3=Constraint(model.ch_u, rule=PV_num_rule3)
     #----------------------------------------------------------------------#
 
     #----------------------------------------------------------------------#
     # Número de baterías por tipo de batería e inversor
     def Batt_string_rule(m,tb,tch):
-        return m.XBs[tb,tch] <= 10e3*sum(m.XCh[tpv,tb,tch] for tpv in model.PVT)
-    model.Batt_string_rule=Constraint(model.BATT, model.CH,rule=Batt_string_rule)
+        return m.X_Bs[tb,tch] <= 10e3*sum(m.X_CH[tpv,tb,tch] for tpv in model.pv_u)
+    model.Batt_string_rule=Constraint(model.bat_u, model.ch_u,rule=Batt_string_rule)
 
     def Batt_num_rule(m, tb, tch):
-        return m.XB[tb,tch] == m.XBs[tb,tch]*np.floor(m.ConH['V_n_batt',tch]/m.Battype['V_nom',tb])
-    model.Batt_num_rule=Constraint(model.BATT, model.CH,rule=Batt_num_rule)
+        return m.X_B[tb,tch] == m.X_Bs[tb,tch]*np.floor(m.ch_f['V_n_batt',tch]/m.bat_f['V_nom',tb])
+    model.Batt_num_rule=Constraint(model.bat_u, model.ch_u,rule=Batt_num_rule)
     #----------------------------------------------------------------------#
 
     #----------------------------------------------------------------------#
     #Balance de Potencia PV por inversor
     def PV_balance_rule(m,tch,t):
-        return m.PpvL[tch,t]+ m.PpvG[tch,t] + sum(m.PpvB[tch,tb,t] for tb in m.BATT) + m.PpvCur[tch,t] == sum(m.Xpv[tpv,tch]*m.P_mpp[t,tpv] for tpv in m.PVT)
-    model.PV_balance=Constraint(model.CH, model.T,rule=PV_balance_rule)
+        return m.PEL_PV_L[tch,t]+ m.PEL_PV_L[tch,t] + sum(m.PEL_PV_B[tch,tb,t] for tb in m.bat_u) + m.PEL_PV_CUR[tch,t] == sum(m.X_PV[tpv,tch]*m.p_pv_gen[t,tpv] for tpv in m.pv_u)
+    model.PV_balance=Constraint(model.ch_u, model.T,rule=PV_balance_rule)
 
     #Balance de Potencia  
     def P_balance_rule(m,t):
-        return m.PGL[t]+ sum(m.PBL[tch,tb,t] for tb in m.BATT for tch in m.CH) + sum(m.ConH['n_dcac',tch]*m.PpvL[tch,t] for tch in m.CH) + m.PDL[t] + m.PTL[t] + m.ENS[t] == m.Carga[t]
+        return m.PEL_G_L[t]+ sum(m.PEL_B_L[tch,tb,t] for tb in m.bat_u for tch in m.ch_u) + sum(m.ch_f['n_dcac',tch]*m.PEL_PV_L[tch,t] for tch in m.ch_u) + m.PEL_D_L[t] + m.PEL_WT_L[t] + m.ENS_EL[t] == m.load_el[t]
     model.P_balance=Constraint(model.T,rule=P_balance_rule)
     #----------------------------------------------------------------------#
 
@@ -284,88 +405,88 @@ def create_model(data_model):
     # Cálculo de estado de carga en baterías cada hora
     def Batt_ts_rule(m,tb,t):#
         if t > m.T.first():
-            return (m.SoC[tb,t] == m.SoC[tb,t-1]*(1-m.Battype['Auto_des',tb]) + sum(m.Battype['n',tb]*t_s*(m.PpvB[tch,tb,t] + m.ConH['n_acdc',tch]*(m.PDB[tch,tb,t] + m.PGB[tch,tb,t] + m.PTB[tch,tb,t])) -
-                    m.PBL[tch,tb,t]/(m.Battype['n',tb]*m.ConH['n_dcac',tch]) for tch in m.CH))
+            return (m.SOC_B[tb,t] == m.SOC_B[tb,t-1]*(1-m.bat_f['Auto_des',tb]) + sum(m.bat_f['n',tb]*t_s*(m.PEL_PV_B[tch,tb,t] + m.ch_f['n_acdc',tch]*(m.PEL_D_B[tch,tb,t] + m.PEL_G_B[tch,tb,t] + m.PEL_WT_B[tch,tb,t])) -
+                    m.PEL_B_L[tch,tb,t]/(m.bat_f['n',tb]*m.ch_f['n_dcac',tch]) for tch in m.ch_u))
         else:
-            return m.SoC[tb,t] == m.Battype['Cap_nom',tb]*sum(m.XB[tb,tch] for tch in m.CH)
-    model.Batt_ts=Constraint(model.BATT, model.T,rule=Batt_ts_rule)
+            return m.SOC_B[tb,t] == m.bat_f['Cap_nom',tb]*sum(m.X_B[tb,tch] for tch in m.ch_u)
+    model.Batt_ts=Constraint(model.bat_u, model.T,rule=Batt_ts_rule)
 
     # Capacidad mínima de baterías 
     def Batt_socmin_rule(m,tb,t):#
-        return m.SoC[tb,t] >= sum(m.XB[tb,tch] for tch in m.CH)*m.Battype['Cap_inf',tb]
-    model.Batt_socmin=Constraint(model.BATT, model.T,rule=Batt_socmin_rule)
+        return m.SOC_B[tb,t] >= sum(m.X_B[tb,tch] for tch in m.ch_u)*m.bat_f['Cap_inf',tb]
+    model.Batt_socmin=Constraint(model.bat_u, model.T,rule=Batt_socmin_rule)
 
     # Capacidad máxima de baterías 
     def Batt_socmax_rule(m,tb,t):#
-        return m.SoC[tb,t] <= m.Bcap[tb,t] 
-    model.Batt_socmax=Constraint(model.BATT, model.T,rule=Batt_socmax_rule)
+        return m.SOC_B[tb,t] <= m.CAP_B[tb,t] 
+    model.Batt_socmax=Constraint(model.bat_u, model.T,rule=Batt_socmax_rule)
 
     # Degradación de la capacidad de las baterías
     def Bcap_rule1(m,tb,t):#
         if t > m.T.first():
-            return m.Bcap[tb,t] == m.Bcap[tb,t-1] - (m.Battype['Deg_kwh',tb]/m.Battype['n',tb])*sum(m.PBL[tch,tb,t]/m.ConH['n_dcac',tch] for tch in m.CH)
+            return m.CAP_B[tb,t] == m.CAP_B[tb,t-1] - (m.bat_f['Deg_kwh',tb]/m.bat_f['n',tb])*sum(m.PEL_B_L[tch,tb,t]/m.ch_f['n_dcac',tch] for tch in m.ch_u)
         else:
-            return m.Bcap[tb,t] == m.Battype['Cap_nom',tb]*sum(m.XB[tb,tch] for tch in m.CH)
-    model.Bcap_rule1=Constraint(model.BATT, model.T,rule=Bcap_rule1)
+            return m.CAP_B[tb,t] == m.bat_f['Cap_nom',tb]*sum(m.X_B[tb,tch] for tch in m.ch_u)
+    model.Bcap_rule1=Constraint(model.bat_u, model.T,rule=Bcap_rule1)
 
     # Degradación anual de la capacidad de las baterías
     def Bcap_rule2(m,tb):#
-        return m.Bcap[tb,m.T.first()]-m.Bcap[tb,m.T.last()] <= 0.2*m.Bcap[tb,m.T.first()]/m.Battype['ty',tb]
-    model.Bcap_rule2=Constraint(model.BATT,rule=Bcap_rule2)
+        return m.CAP_B[tb,m.T.first()]-m.CAP_B[tb,m.T.last()] <= 0.2*m.CAP_B[tb,m.T.first()]/m.bat_f['ty',tb]
+    model.Bcap_rule2=Constraint(model.bat_u,rule=Bcap_rule2)
     #----------------------------------------------------------------------#
 
     #----------------------------------------------------------------------#
     # Restricción salida AC del inversor
     def ac_out_ch(m,tch,t):
-        return m.PpvG[tch,t] + sum(m.PBL[tch,tb,t] for tb in m.BATT) + m.PpvL[tch,t] <= m.ConH['Pac_max_out',tch]*sum(m.XCh[tpv,tb,tch] for tb in m.BATT for tpv in m.PVT)
-    model.ac_out_ch = Constraint(model.CH, model.T,rule=ac_out_ch)
+        return m.PEL_PV_L[tch,t] + sum(m.PEL_B_L[tch,tb,t] for tb in m.bat_u) + m.PEL_PV_L[tch,t] <= m.ch_f['Pac_max_out',tch]*sum(m.X_CH[tpv,tb,tch] for tb in m.bat_u for tpv in m.pv_u)
+    model.ac_out_ch = Constraint(model.ch_u, model.T,rule=ac_out_ch)
 
     # Restricción entrada AC del inversor
     def ac_in_ch(m,tch,tb,t):
-        return m.PGB[tch,tb,t] + m.PTB[tch,tb,t] + m.PDB[tch,tb,t] <= m.ConH['Pac_max_in',tch]*sum(m.XCh[tpv,tb,tch] for tpv in m.PVT)
-    model.ac_in_ch = Constraint(model.CH, model.BATT,model.T,rule=ac_in_ch)
+        return m.PEL_G_B[tch,tb,t] + m.PEL_WT_B[tch,tb,t] + m.PEL_D_B[tch,tb,t] <= m.ch_f['Pac_max_in',tch]*sum(m.X_CH[tpv,tb,tch] for tpv in m.pv_u)
+    model.ac_in_ch = Constraint(model.ch_u, model.bat_u,model.T,rule=ac_in_ch)
     #----------------------------------------------------------------------#
 
     #----------------------------------------------------------------------#
     def PpvB_lim_rule1(m,tch,tb,t):
-        return m.PpvB[tch,tb,t] + m.PTB[tch,tb,t] + m.PGB[tch,tb,t] + m.PDB[tch,tb,t] <= m.XB[tb, tch]*m.Battype['P_ch',tb]
-    model.PpvB_lim_rule1=Constraint(model.CH, model.BATT, model.T,rule=PpvB_lim_rule1)
+        return m.PEL_PV_B[tch,tb,t] + m.PEL_WT_B[tch,tb,t] + m.PEL_G_B[tch,tb,t] + m.PEL_D_B[tch,tb,t] <= m.X_B[tb, tch]*m.bat_f['P_ch',tb]
+    model.PpvB_lim_rule1=Constraint(model.ch_u, model.bat_u, model.T,rule=PpvB_lim_rule1)
     
     def PpvB_lim_rule3(m,tch,tb,t):
-        return m.PpvB[tch,tb,t] + m.PTB[tch,tb,t] + m.PGB[tch,tb,t] + m.PDB[tch,tb,t] <= (m.ConH['V_n_batt',tch]*m.ConH['I_max_ch_pv',tch]/1000)*sum(m.XCh[tpv,tb,tch] for tpv in m.PVT)
-    model.PpvB_lim_rule3=Constraint(model.CH,model.BATT,model.T,rule=PpvB_lim_rule3)
+        return m.PEL_PV_B[tch,tb,t] + m.PEL_WT_B[tch,tb,t] + m.PEL_G_B[tch,tb,t] + m.PEL_D_B[tch,tb,t] <= (m.ch_f['V_n_batt',tch]*m.ch_f['I_max_ch_pv',tch]/1000)*sum(m.X_CH[tpv,tb,tch] for tpv in m.pv_u)
+    model.PpvB_lim_rule3=Constraint(model.ch_u,model.bat_u,model.T,rule=PpvB_lim_rule3)
 
     def PBL_lims_rule1(m,tch,tb,t):
-        return m.PBL[tch,tb,t] <= m.Battype['P_des',tb]*m.XB[tb, tch]
-    model.PBL_lims_rule1=Constraint(model.CH, model.BATT, model.T,rule=PBL_lims_rule1)
+        return m.PEL_B_L[tch,tb,t] <= m.bat_f['P_des',tb]*m.X_B[tb, tch]
+    model.PBL_lims_rule1=Constraint(model.ch_u, model.bat_u, model.T,rule=PBL_lims_rule1)
 
     def PBL_lims_rule2(m,tch,tb,t):
-        return m.PBL[tch,tb,t] <= (m.ConH['V_n_batt',tch]*m.ConH['I_max_des',tch]/1000)*sum(m.XCh[tpv,tb,tch] for tpv in m.PVT)
-    model.PBL_lims_rule2=Constraint(model.CH, model.BATT, model.T,rule=PBL_lims_rule2)
+        return m.PEL_B_L[tch,tb,t] <= (m.ch_f['V_n_batt',tch]*m.ch_f['I_max_des',tch]/1000)*sum(m.X_CH[tpv,tb,tch] for tpv in m.pv_u)
+    model.PBL_lims_rule2=Constraint(model.ch_u, model.bat_u, model.T,rule=PBL_lims_rule2)
     #----------------------------------------------------------------------#
 
     #----------------------------------------------------------------------#
     # Batería cargando con PV
     def Ceff_rule1(m,tch,t):#
-        return sum(m.PpvB[tch,tb,t] + m.PTB[tch,tb,t] + m.PGB[tch,tb,t] + m.PDB[tch,tb,t] for tb in m.BATT) <= 100e6*m.Bceff[tch,t]
-    model.Ceff_rule1=Constraint(model.CH,model.T,rule=Ceff_rule1)
+        return sum(m.PEL_PV_B[tch,tb,t] + m.PEL_WT_B[tch,tb,t] + m.PEL_G_B[tch,tb,t] + m.PEL_D_B[tch,tb,t] for tb in m.bat_u) <= 100e6*m.Y_B_carg[tch,t]
+    model.Ceff_rule1=Constraint(model.ch_u,model.T,rule=Ceff_rule1)
 
     # Batería descargando
     def Deff_rule1(model,tch,t):#
-        return sum(model.PBL[tch,tb,t] for tb in model.BATT) <= 100e6*model.Bdeff[tch,t]
-    model.Deff_rule1=Constraint(model.CH,model.T,rule=Deff_rule1)
+        return sum(model.PEL_B_L[tch,tb,t] for tb in model.bat_u) <= 100e6*model.Y_B_desc[tch,t]
+    model.Deff_rule1=Constraint(model.ch_u,model.T,rule=Deff_rule1)
 
     # Estado único de batería
     def Bstate_rule(model,tch,t):#
-        return model.Bceff[tch,t] + model.Bdeff[tch,t] <= 1
-    model.Bstate_rule=Constraint(model.CH,model.T,rule=Bstate_rule)
+        return model.Y_B_carg[tch,t] + model.Y_B_desc[tch,t] <= 1
+    model.Bstate_rule=Constraint(model.ch_u,model.T,rule=Bstate_rule)
     #----------------------------------------------------------------------#
    
     
     if data_model["area"]["active"]:
         model.Area = Param(initialize = data_model["area"]["value"])
         def PV_number_rule(m):#
-            return sum(m.Xpv[tpv,tch]*m.PVtype['A',tpv]  for tch in m.CH for tpv in m.PVT) + sum(m.XT[tt]*m.Windtype['A',tt] for tt in m.WT) <= m.Area
+            return sum(m.X_PV[tpv,tch]*m.pv_f['A',tpv]  for tch in m.ch_u for tpv in m.pv_u) + sum(m.X_WT[tt]*m.wt_f['A',tt] for tt in m.wt_u) <= m.Area
         model.PV_number=Constraint(rule=PV_number_rule)
 
 
@@ -373,8 +494,8 @@ def create_model(data_model):
         model.MaxBudget = Param(initialize = data_model["max_invest"]["value"])
         
         def Budget_rule(m):#
-            return sum(m.Xpv[tpv,tch]*(m.PVtype['C_inst',tpv]) for tch in m.CH for tpv in m.PVT) + sum(m.XB[tb,tch]*m.Battype['C_inst',tb] for tch in m.CH for tb in m.BATT) \
-                   + sum(m.XCh[tpv,tb,tch]*m.ConH['C_inst',tch] for tpv in m.PVT for tb in m.BATT for tch in m.CH) + sum(m.XT[tt]*m.Windtype['C_inst',tt] for tt in m.WT) + model.GenCost <= m.MaxBudget
+            return sum(m.X_PV[tpv,tch]*(m.pv_f['C_inst',tpv]) for tch in m.ch_u for tpv in m.pv_u) + sum(m.X_B[tb,tch]*m.bat_f['C_inst',tb] for tch in m.ch_u for tb in m.bat_u) \
+                   + sum(m.X_CH[tpv,tb,tch]*m.ch_f['C_inst',tch] for tpv in m.pv_u for tb in m.bat_u for tch in m.ch_u) + sum(m.X_WT[tt]*m.wt_f['C_inst',tt] for tt in m.wt_u) + model.d_cost_inst <= m.MaxBudget
         model.Budget=Constraint(rule=Budget_rule)
 
     if data_model["environment"]["active"]:
@@ -383,22 +504,32 @@ def create_model(data_model):
         model.EnvC = Param(initialize = 0)
     
     def ComputeFirstStageCost(m):
-        return sum(m.Xpv[tpv,tch]*(m.PVtype['C_inst',tpv] + VPN_FS*m.PVtype['C_OM_y',tpv]) for tch in m.CH for tpv in m.PVT) \
-                    + sum(m.XB[tb,tch]*(m.Battype['C_inst',tb] + VPN_FS*m.Battype['C_OM_y',tb]) for tch in m.CH for tb in m.BATT) \
-                    + sum(sum(m.XCh[tpv,tb,tch] for tb in m.BATT for tpv in m.PVT)*(m.ConH['C_inst',tch]  + VPN_FS*m.ConH['C_OM_y',tch]) for tch in m.CH) \
-                    + sum(m.XT[tt]*(m.Windtype['C_inst',tt] + VPN_FS*m.Windtype['C_OM_y',tt]) for tt in m.WT) + m.GenCost \
-                    + sum(sum(VPN_F[ii-1]*m.ConH['C_inst',tch]*sum(m.XCh[tpv,tb,tch] for tb in m.BATT for tpv in m.PVT) for ii in np.arange(int(m.ConH['ty',tch]),m.lifeyears,int(m.ConH['ty',tch]))) for tch in m.CH) \
-                    + sum(sum(VPN_F[ii-1]*m.Battype['C_inst',tb]*sum(m.XB[tb,tch] for tch in m.CH) for ii in np.arange(int(m.Battype['ty',tb]),m.lifeyears,int(m.Battype['ty',tb]))) for tb in m.BATT) \
-                    + sum(sum(VPN_F[ii-1]*m.Windtype['C_inst',tt]*m.XT[tt] for ii in np.arange(int(m.Windtype['ty',tt]),m.lifeyears,int(m.Windtype['ty',tt]))) for tt in m.WT)
-
+        return (
+            sum(m.X_PV[tpv,tch]*(m.pv_f['C_inst',tpv] + VPN_FS*m.pv_f['C_OM_y',tpv]) for tch in m.ch_u for tpv in m.pv_u)
+            + sum(m.X_B[tb,tch]*(m.bat_f['C_inst',tb] + VPN_FS*m.bat_f['C_OM_y',tb]) for tch in m.ch_u for tb in m.bat_u)
+            + sum(sum(m.X_CH[tpv,tb,tch] for tb in m.bat_u for tpv in m.pv_u)*(m.ch_f['C_inst',tch]  + VPN_FS*m.ch_f['C_OM_y',tch]) for tch in m.ch_u)
+            + sum(m.X_WT[tt]*(m.wt_f['C_inst',tt] + VPN_FS*m.wt_f['C_OM_y',tt]) for tt in m.wt_u) 
+            + m.d_cost_inst
+            + sum(m.X_BOI[tboi]*m.boi_f['C_inst',tboi] for tboi in m.boi_u)
+            
+            + sum(sum(VPN_F[ii-1]*m.ch_f['C_inst',tch]*sum(m.X_CH[tpv,tb,tch] for tb in m.bat_u for tpv in m.pv_u) for ii in np.arange(int(m.ch_f['ty',tch]),m.lifeyears,int(m.ch_f['ty',tch]))) for tch in m.ch_u)
+            + sum(sum(VPN_F[ii-1]*m.bat_f['C_inst',tb]*sum(m.X_B[tb,tch] for tch in m.ch_u) for ii in np.arange(int(m.bat_f['ty',tb]),m.lifeyears,int(m.bat_f['ty',tb]))) for tb in m.bat_u)
+            + sum(sum(VPN_F[ii-1]*m.wt_f['C_inst',tt]*m.X_WT[tt] for ii in np.arange(int(m.wt_f['ty',tt]),m.lifeyears,int(m.wt_f['ty',tt]))) for tt in m.wt_u)
+            + sum(sum(VPN_F[ii-1]*m.boi_f['C_inst',tboi]*m.X_BOI[tboi] for ii in np.arange(int(m.boi_f['ty',tboi]),m.lifeyears,int(m.boi_f['ty',tboi]))) for tboi in m.boi_u)
+        )
     model.FirstStage = Expression(rule=ComputeFirstStageCost)
 
     def ComputeSecondStageCost(m):
-        return VPN_FS*sum(m.Price_Grid[t]*(m.PGL[t] + sum(m.PGB[tch,tb,t] for tb in m.BATT for tch in m.CH))  +
-                        m.FuelCost*(m.GenFmin*m.GenOn[t] + m.GenFm*(m.PDL[t] + sum(m.PDB[tch,tb,t] for tch in m.CH for tb in m.BATT))) + m.GenOMCost*m.GenOn[t] +
-                        m.Price_ENS[t]*m.ENS[t] - m.Ppvusd[t]*(sum(m.ConH['n_dcac',tch]*m.PpvG[tch,t] for tch in m.CH) + m.PTG[t]) -
-                        m.EnvC*sum(sum(m.Xpv[tpv,tch]*m.P_mpp[t,tpv] for tpv in m.PVT) - m.PpvCur[tch,t] for tch in m.CH) -
-                        m.EnvC*(sum(m.XT[tt]*m.WT_gen[t,tt] for tt in m.WT) - m.PTCur[t]) for t in m.T)
+        return VPN_FS*sum(
+            m.price_buy_grid_el[t]*(m.PEL_G_L[t] + sum(m.PEL_G_B[tch,tb,t] for tb in m.bat_u for tch in m.ch_u))
+            + m.d_fuel_cost*(m.d_f_min*m.Y_D[t] + m.d_fm*(m.PEL_D_L[t] + sum(m.PEL_D_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u))) 
+            + m.d_cost_om*m.Y_D[t]
+            + sum(m.PTH_BOI[t,tboi]*m.boi_f['C_OM_kWh',tboi] for tboi in m.boi_u)
+            + m.Price_ENS[t]*m.ENS_EL[t] - m.price_sell_grid_el[t]*(sum(m.ch_f['n_dcac',tch]*m.PEL_PV_L[tch,t] for tch in m.ch_u) + m.PEL_T_G[t])
+            - m.EnvC*sum(sum(m.X_PV[tpv,tch]*m.p_pv_gen[t,tpv] for tpv in m.pv_u) - m.PEL_PV_CUR[tch,t] for tch in m.ch_u)
+            - m.EnvC*(sum(m.X_WT[tt]*m.p_wt_gen[t,tt] for tt in m.wt_u) - m.PEL_WT_CUR[t]) 
+            
+        for t in m.T)
 
     model.SecondStage = Expression(rule=ComputeSecondStageCost)
     #Función objetivo 
@@ -406,7 +537,6 @@ def create_model(data_model):
         return  m.FirstStage + m.SecondStage
     model.Obj=Objective(rule=obj_rule,sense=minimize)                  #Objetive=Objetive, maximizar Valor presente neto
 
-
     return model
-    # Cbono*mu_co2*sum(sum(model.Xpv[tpv,tch]*P_mpp[tpv].iloc[t-1] for tpv in PVT) - model.PpvCur[tch,t] for tch in CH)
+    
 
