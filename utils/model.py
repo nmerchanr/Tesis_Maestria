@@ -140,31 +140,6 @@ def create_model(data_model):
 
     """
     -----------------------------------------------------------------------------------------
-    ----------VARIABLES, SETS Y PARÁMETROS TÉCNICOS DE LOS INVERSORES HÍBRIDOS ----------
-    -----------------------------------------------------------------------------------------
-    """
-
-    if data_model["inverters"]["active"] and (data_model["batteries"]["active"] or data_model["pv_modules"]["active"]):
-        
-        # SET Tecnologías de inversores híbridos
-        model.pv_u = Set(initialize=data_model["pv_modules"]["type"].columns.tolist())
-        # PARÁMETRO Características tecnologías de inversores híbridos
-        model.ch_f = Param(data_model["inverters"]["type"].index.to_list(), model.ch_u, initialize = create_dict(data_model["inverters"]["type"]), domain = Any)
-
-    else:
-        # SET-NULO Tecnologías de inversores híbridos
-        model.ch_u = Set(initialize=["None"])
-        # PARÁMETRO-NULO Características tecnologías de turbinas eólicas
-        CH_none_df = pd.DataFrame(index=["C_inst", "C_OM_y"], data={"None":[0,0]})
-        model.ch_f = Param(CH_none_df.index.to_list(), model.ch_u, initialize = create_dict(CH_none_df), domain = Any)
-
-    # VARIABLE Número de inversores híbridos
-    model.X_CH  = Var(model.pv_u,model.bat_u,model.ch_u, domain=NonNegativeIntegers)
-    # VARIABLE Sólo un tipo de tecnología de baterías y paneles por inversor
-    model.Y_CH = Var(model.pv_u, model.bat_u, model.ch_u, within=Binary) 
-
-    """
-    -----------------------------------------------------------------------------------------
     ----------SETS Y PARÁMETROS TÉCNICOS DE LOS PANELES SOLARES ----------
     -----------------------------------------------------------------------------------------
     """
@@ -203,6 +178,34 @@ def create_model(data_model):
         # PARÁMETRO-NULO Características tecnologías de baterías
         BAT_none_df = pd.DataFrame(index=["C_inst", "C_OM_y"], data={"None":[0,0]})
         model.bat_f = Param(BAT_none_df.index.to_list(), model.bat_u, initialize = create_dict(BAT_none_df), domain = Any)
+
+
+    """
+    -----------------------------------------------------------------------------------------
+    ----------VARIABLES, SETS Y PARÁMETROS TÉCNICOS DE LOS INVERSORES HÍBRIDOS ----------
+    -----------------------------------------------------------------------------------------
+    """
+
+    if data_model["inverters"]["active"] and (data_model["batteries"]["active"] or data_model["pv_modules"]["active"]):
+        
+        # SET Tecnologías de inversores híbridos
+        model.ch_u = Set(initialize=data_model["inverters"]["type"].columns.tolist())
+        # PARÁMETRO Características tecnologías de inversores híbridos
+        model.ch_f = Param(data_model["inverters"]["type"].index.to_list(), model.ch_u, initialize = create_dict(data_model["inverters"]["type"]), domain = Any)
+
+    else:
+        # SET-NULO Tecnologías de inversores híbridos
+        model.ch_u = Set(initialize=["None"])
+        # PARÁMETRO-NULO Características tecnologías de turbinas eólicas
+        CH_none_df = pd.DataFrame(index=["C_inst", "C_OM_y"], data={"None":[0,0]})
+        model.ch_f = Param(CH_none_df.index.to_list(), model.ch_u, initialize = create_dict(CH_none_df), domain = Any)
+
+    # VARIABLE Número de inversores híbridos
+    model.X_CH  = Var(model.pv_u,model.bat_u,model.ch_u, domain=NonNegativeIntegers)
+    # VARIABLE Sólo un tipo de tecnología de baterías y paneles por inversor
+    model.Y_CH = Var(model.pv_u, model.bat_u, model.ch_u, within=Binary) 
+
+    
 
 
     """
@@ -522,7 +525,7 @@ def create_model(data_model):
 
         # RESTRICCIÓN Límite superior de potencia de salida del CHP
         def max_p_chps(m,t,tchp):
-            return m.PEL_CHP[t,tchp] <= m.chp_f['P_nom',tchp]*m.X_chp[tchp]
+            return m.PEL_CHP[t,tchp] <= m.chp_f['P_nom',tchp]*m.X_CHP[tchp]
         model.max_p_chps = Constraint(model.T, model.chp_u, rule=max_p_chps)
 
         # RESTRICCIÓN Límite inferior de potencia de salida del CHP
@@ -540,30 +543,30 @@ def create_model(data_model):
             return m.PTH_CHP[t,tchp] == m.chp_f['y_n_th',tchp]*m.PNOM_CHP_AUX[t,tchp] + m.chp_f['lamd_n_th',tchp]*m.PEL_CHP[t,tchp] 
         model.efficiency_chps_th = Constraint(model.T, model.chp_u, rule=efficiency_chps_th)
 
-        # RESTRICCIÓN Restricción 1 potencia nominal auxiliar calderas
+        # RESTRICCIÓN Restricción 1 potencia nominal auxiliar CHPs
         def chps_nom_aux_1(m,t,tchp):
             return m.PNOM_CHP_AUX[t,tchp] <= m.big_M*m.Y_CHP[t,tchp]
         model.chps_nom_aux_1 = Constraint(model.T, model.chp_u, rule=chps_nom_aux_1)
 
-        # RESTRICCIÓN Restricción 2 potencia nominal auxiliar calderas
+        # RESTRICCIÓN Restricción 2 potencia nominal auxiliar CHPs
         def chps_nom_aux_2(m,t,tchp):
             return m.PNOM_CHP_AUX[t,tchp] <= m.chp_f['P_nom',tchp]*m.X_CHP[tchp] 
         model.chps_nom_aux_2 = Constraint(model.T, model.chp_u, rule=chps_nom_aux_2)
 
-        # RESTRICCIÓN Restricción 3 potencia nominal auxiliar calderas
+        # RESTRICCIÓN Restricción 3 potencia nominal auxiliar CHPs
         def chps_nom_aux_3(m,t,tchp):
             return m.PNOM_CHP_AUX[t,tchp] >= m.chp_f['P_nom',tchp]*m.X_CHP[tchp] - m.big_M*(1-m.Y_CHP[t,tchp])
         model.chps_nom_aux_3 = Constraint(model.T, model.chp_u, rule=chps_nom_aux_3)
 
         # RESTRICCIÓN Balance de potencia térmica de los CHPs
-        def PTH_balance_chp(m,t):
+        def PTH_balance_th_chp(m,t):
             return sum(m.PTH_CHP_AC[t,tac] for tac in m.ac_u) + m.PTH_CHP_L[t] + m.PTH_CHP_CUR[t] == sum(m.PTH_CHP[t,tchp] for tchp in m.chp_u)
-        model.PTH_balance_chp=Constraint(model.T, model.chp_u, rule=PTH_balance_chp)
+        model.PTH_balance_th_chp = Constraint(model.T, rule=PTH_balance_th_chp)
 
         # RESTRICCIÓN Balance de potencia eléctrica de los CHPs
-        def PTH_balance_chp(m,t):
+        def PTH_balance_el_chp(m,t):
             return m.PEL_CHP_L[t] + sum(m.PEL_CHP_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u) == sum(m.PEL_CHP[t,tchp] for tchp in m.chp_u)
-        model.PTH_balance_chp=Constraint(model.T, model.chp_u, rule=PTH_balance_chp)
+        model.PTH_balance_el_chp = Constraint(model.T, rule=PTH_balance_el_chp)
 
     else:        
 
@@ -879,7 +882,12 @@ def create_model(data_model):
 
         # RESTRICCIÓN Balance de potencia eléctrica que consumen los enfriadores eléctricos
         def PEL_balance_ec(m,t):
-            return sum(m.PEL_EC[t,tec] for tec in m.ec_u) == sum(sum(m.PEL_B_EC[tch,tb,t] for tb in m.bat_u) + m.ch_f['n_dcac',tch]*m.PEL_PV_EC[tch,t] for tch in m.ch_u) + m.PEL_G_EC[t] + m.PEL_WT_EC[t] + m.PEL_D_EC[t]
+            return (
+                sum(m.PEL_EC[t,tec] for tec in m.ec_u) == 
+                sum(sum(m.PEL_B_EC[tch,tb,t] for tb in m.bat_u) + 
+                m.ch_f['n_dcac',tch]*m.PEL_PV_EC[tch,t] for tch in m.ch_u) + m.PEL_G_EC[t] + 
+                m.PEL_WT_EC[t] + m.PEL_D_EC[t]
+            )
         model.PEL_balance_ec = Constraint(model.T,rule=PEL_balance_ec) 
 
     else:       
@@ -992,7 +1000,12 @@ def create_model(data_model):
 
     # RESTRICCIÓN Balance de Potencia de la carga eléctrica
     def PEL_balance_load(m,t):
-        return m.PEL_G_L[t]+ sum(m.PEL_B_L[tch,tb,t] for tb in m.bat_u for tch in m.ch_u) + sum(m.ch_f['n_dcac',tch]*m.PEL_PV_L[tch,t] for tch in m.ch_u) + m.PEL_D_L[t] + m.PEL_CHP_L[t] + m.PEL_WT_L[t] + m.PEL_NS[t] == m.load_el[t]
+        return (
+            m.PEL_G_L[t]+ sum(m.PEL_B_L[tch,tb,t] for tb in m.bat_u for tch in m.ch_u) 
+            + sum(m.ch_f['n_dcac',tch]*m.PEL_PV_L[tch,t] for tch in m.ch_u) + m.PEL_D_L[t] 
+            + m.PEL_CHP_L[t] + m.PEL_WT_L[t] + m.PEL_NS[t] 
+            == m.load_el[t]
+        )
     model.PEL_balance_load=Constraint(model.T,rule=PEL_balance_load)
 
     # RESTRICCIÓN Balance de Potencia de la carga térmica
@@ -1037,13 +1050,16 @@ def create_model(data_model):
             + sum(m.X_BOI[tboi]*m.boi_f['C_inst',tboi] for tboi in m.boi_u)
             + sum(m.X_CHP[tchp]*m.chp_f['C_inst',tchp] for tchp in m.chp_u)
             + sum(m.X_AC[tac]*m.ac_f['C_inst',tac] for tac in m.ac_u)
+            + sum(m.X_EC[tec]*m.ec_f['C_inst',tec] for tec in m.ec_u)
             
             + sum(sum(VPN_F[ii-1]*m.ch_f['C_inst',tch]*sum(m.X_CH[tpv,tb,tch] for tb in m.bat_u for tpv in m.pv_u) for ii in np.arange(int(m.ch_f['ty',tch]),m.lifeyears,int(m.ch_f['ty',tch]))) for tch in m.ch_u)
             + sum(sum(VPN_F[ii-1]*m.bat_f['C_inst',tb]*sum(m.X_B[tb,tch] for tch in m.ch_u) for ii in np.arange(int(m.bat_f['ty',tb]),m.lifeyears,int(m.bat_f['ty',tb]))) for tb in m.bat_u)
             + sum(sum(VPN_F[ii-1]*m.wt_f['C_inst',tt]*m.X_WT[tt] for ii in np.arange(int(m.wt_f['ty',tt]),m.lifeyears,int(m.wt_f['ty',tt]))) for tt in m.wt_u)
+            
             + sum(sum(VPN_F[ii-1]*m.boi_f['C_inst',tboi]*m.X_BOI[tboi] for ii in np.arange(int(m.boi_f['ty',tboi]),m.lifeyears,int(m.boi_f['ty',tboi]))) for tboi in m.boi_u)
             + sum(sum(VPN_F[ii-1]*m.chp_f['C_inst',tchp]*m.X_CHP[tchp] for ii in np.arange(int(m.chp_f['ty',tchp]),m.lifeyears,int(m.chp_f['ty',tchp]))) for tchp in m.chp_u)
             + sum(sum(VPN_F[ii-1]*m.ac_f['C_inst',tac]*m.X_AC[tac] for ii in np.arange(int(m.ac_f['ty',tac]),m.lifeyears,int(m.ac_f['ty',tac]))) for tac in m.ac_u)
+            + sum(sum(VPN_F[ii-1]*m.ec_f['C_inst',tec]*m.X_EC[tec] for ii in np.arange(int(m.ec_f['ty',tec]),m.lifeyears,int(m.ec_f['ty',tec]))) for tec in m.ec_u)
         )
     model.FirstStage = Expression(rule=ComputeFirstStageCost)
 
@@ -1056,6 +1072,7 @@ def create_model(data_model):
             + sum(m.PTH_BOI[t,tboi]*m.boi_f['C_OM_kWh',tboi] for tboi in m.boi_u)
             + sum(m.PEL_CHP[t,tchp]*m.chp_f['C_OM_kWh',tchp] for tchp in m.chp_u)
             + sum(m.PCL_AC[t,tac]*m.ac_f['C_OM_kWh',tac] for tac in m.ac_u)
+            + sum(m.PCL_EC[t,tec]*m.ec_f['C_OM_kWh',tec] for tec in m.ac_u)
             + m.cost_ens_el[t]*m.PEL_NS[t] + m.cost_ens_th[t]*m.PTH_NS[t] + m.cost_ens_cl[t]*m.PCL_NS[t]
             - m.price_sell_grid_el[t]*(sum(m.ch_f['n_dcac',tch]*m.PEL_PV_G[tch,t] for tch in m.ch_u) + m.PEL_WT_G[t])
             - m.EnvC*sum(sum(m.X_PV[tpv,tch]*m.p_pv_gen[t,tpv] for tpv in m.pv_u) - m.PEL_PV_CUR[tch,t] for tch in m.ch_u)

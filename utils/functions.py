@@ -3,7 +3,68 @@ import pandas as pd
 import numpy as np
 from numpy import radians as r
 import altair as alt
+import plotly.graph_objects as go
+import plotly.subplots as sp
+import ipywidgets as widgets
+from IPython.display import display
+
 alt.data_transformers.disable_max_rows()
+
+def tabbed_df_viewer(df_dict : dict):
+    """
+    Muestra los DataFrames en un widget de pestañas.
+    
+    :param df_dict: Diccionario donde las llaves son los nombres de los DataFrames y los valores son los DataFrames.
+    """
+    # Crear un Tab widget
+    tab = widgets.Tab()
+
+    # Crear una lista de widgets de salida, uno para cada DataFrame
+    children = []    
+    for name, df in df_dict.items():          
+        output = widgets.Output()           
+        output.append_display_data(df)   
+            
+        children.append(output)
+        
+
+    # Asignar las salidas a las pestañas
+    tab.children = children
+
+    # Nombrar cada pestaña según la llave del diccionario
+    for i, name in enumerate(df_dict.keys()):
+        tab.set_title(i, name)
+
+    # Mostrar las pestañas
+    display(tab)
+
+
+def tabbed_df_viewer(df_dict):
+    """
+    Muestra los DataFrames en un widget de pestañas.
+    
+    :param df_dict: Diccionario donde las llaves son los nombres de los DataFrames y los valores son los DataFrames.
+    """
+    # Crear un Tab widget
+    tab = widgets.Tab()
+
+    # Crear una lista de widgets de salida, uno para cada DataFrame
+    children = []
+    for name, df in df_dict.items():
+        output = widgets.Output()
+        with output:
+            display(df)
+        children.append(output)
+
+    # Asignar las salidas a las pestañas
+    tab.children = children
+
+    # Nombrar cada pestaña según la llave del diccionario
+    for i, name in enumerate(df_dict.keys()):
+        tab.set_title(i, name)
+
+    # Mostrar las pestañas
+    display(tab)
 
 def get_data_fromNSRDB(lat, lon, year):
     
@@ -147,3 +208,38 @@ def createfig_heatmap(df, col, binary, units, title):
                                         ).configure_title(fontSize=24)
     
     return fig
+
+
+def plot_time_series(df, time_col):
+    # Verifica que la columna temporal esté en el DataFrame
+    if time_col not in df.columns:
+        raise ValueError(f"La columna '{time_col}' no está en el DataFrame.")
+
+    # Elimina la columna temporal de las columnas a graficar
+    columns_to_plot = [col for col in df.columns if col != time_col]
+
+    # Crear una figura con subplots
+    num_cols = len(columns_to_plot)
+    rows = (num_cols + 2) // 3  # Ajusta el número de filas
+    fig = sp.make_subplots(rows=rows, cols=3, subplot_titles=columns_to_plot)
+
+    for i, col in enumerate(columns_to_plot):
+        row = i // 3 + 1
+        col_idx = i % 3 + 1
+        
+        # Verifica si los valores son binarios
+        if df[col].dropna().isin([0, 1]).all():
+            # Gráfico de barras
+            fig.add_trace(
+                go.Bar(x=df[time_col], y=df[col], name=col),
+                row=row, col=col_idx
+            )
+        else:
+            # Gráfico de líneas
+            fig.add_trace(
+                go.Scatter(x=df[time_col], y=df[col], mode='lines', name=col),
+                row=row, col=col_idx
+            )
+    
+    fig.update_layout(height=400 * rows, title_text="Series de Tiempo")
+    fig.show()
