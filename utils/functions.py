@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import plotly.subplots as sp
 import ipywidgets as widgets
 from IPython.display import display
+from typing import Literal
 
 alt.data_transformers.disable_max_rows()
 
@@ -132,7 +133,14 @@ def calculate_WT_power(df, WindGens, z0, height, elevation):
 
     return Profiles, Turbine_profile
 
-def power_PV_calculation(df_meteo, PVtype, azimut, inc_panel, lat):
+def power_PV_calculation(
+    df_meteo : pd.DataFrame, 
+    PVtype : pd.DataFrame, 
+    azimut, 
+    inc_panel, 
+    lat,
+    type : Literal['electric', 'thermal']
+):
     
     df = df_meteo.copy()
 
@@ -165,9 +173,12 @@ def power_PV_calculation(df_meteo, PVtype, azimut, inc_panel, lat):
     T_panel = Tm+(df['IRR'].values/1000)*3
 
     P_mpp = pd.DataFrame(index = df.index, columns = PVtype.columns)
-
+    
     for k in list(PVtype.columns):
-        P_mpp[k] = (PVtype.loc['P_stc',k]*(1+(PVtype.loc['Tc_Pmax',k]/100)*(T_panel-25))*(df['IRR'].values/1000))/1000
+        if type == "electric":
+            P_mpp[k] = (PVtype.loc['P_stc',k]*(1+(PVtype.loc['Tc_Pmax',k]/100)*(T_panel-25))*(df['IRR'].values/1000))/1000
+        elif type == "thermal":
+            P_mpp[k] = PVtype.loc['A',k]*PVtype.loc['FR',k]*(PVtype.loc['lambda_alpha',k]*df['IRR'].values - PVtype.loc['U_loss',k]*(T_panel - df['Temperature'].values))
                 
     return P_mpp
 

@@ -128,14 +128,14 @@ def create_model(data_model):
     -----------------------------------------------------------------------------------------
     """
 
-    def create_ens_th_null():
-        model.cost_ens_th = Param(model.T, initialize= T_dict(T, np.repeat(0, len(T))))
-        def None_ENS_TH(m,t):
-            return m.PTH_NS[t] == 0
-        model.None_ENS_TH = Constraint(model.T, rule=None_ENS_TH)    
+    #def create_ens_th_null():
+    #    model.cost_ens_th = Param(model.T, initialize= T_dict(T, np.repeat(0, len(T))))
+    #    def None_ENS_TH(m,t):
+    #        return m.PTH_NS[t] == 0
+    #    model.None_ENS_TH = Constraint(model.T, rule=None_ENS_TH)    
 
     # VARIABLE Energía térmica no suministrada
-    model.PTH_NS = Var(model.T, domain=NonNegativeReals)
+    #model.PTH_NS = Var(model.T, domain=NonNegativeReals)
     
     if data_model["load_th"]["active"]:
         if data_model["load_th"]["type"] == "fixed": 
@@ -143,16 +143,16 @@ def create_model(data_model):
         elif data_model["load_th"]["type"] == "variable":
             model.load_th = Param(model.T, initialize= T_dict(T, data_model["load_th"]["value"]))
             
-        if data_model["load_th"]["ENS_TH"]["active"]:        
-            if data_model["load_th"]["ENS_TH"]["type"] == "fixed":            
-                model.cost_ens_th = Param(model.T, initialize= T_dict(T, np.repeat(data_model["load_th"]["ENS_TH"]["value"], len(T))))
-            elif data_model["load_th"]["ENS_TH"]["type"] == "variable":
-                model.cost_ens_th = Param(model.T, initialize= T_dict(T, data_model["load_th"]["ENS_TH"]["value"]))
-        else:
-            create_ens_th_null()
+        #if data_model["load_th"]["ENS_TH"]["active"]:        
+        #    if data_model["load_th"]["ENS_TH"]["type"] == "fixed":            
+        #        model.cost_ens_th = Param(model.T, initialize= T_dict(T, np.repeat(data_model["load_th"]["ENS_TH"]["value"], len(T))))
+        #    elif data_model["load_th"]["ENS_TH"]["type"] == "variable":
+        #        model.cost_ens_th = Param(model.T, initialize= T_dict(T, data_model["load_th"]["ENS_TH"]["value"]))
+        #else:
+        #    create_ens_th_null()
     else:
         model.load_th = Param(model.T, initialize= T_dict(T, np.repeat(0, len(T))))
-        create_ens_th_null()
+        #create_ens_th_null()
 
 
     """
@@ -161,14 +161,14 @@ def create_model(data_model):
     -----------------------------------------------------------------------------------------
     """
 
-    def create_ens_cl_null():
-        model.cost_ens_cl = Param(model.T, initialize= T_dict(T, np.repeat(0, len(T))))
-        def None_ENS_CL(m,t):
-            return m.PCL_NS[t] == 0
-        model.None_ENS_CL = Constraint(model.T, rule=None_ENS_CL)    
+    #def create_ens_cl_null():
+    #    model.cost_ens_cl = Param(model.T, initialize= T_dict(T, np.repeat(0, len(T))))
+    #    def None_ENS_CL(m,t):
+    #        return m.PCL_NS[t] == 0
+    #    model.None_ENS_CL = Constraint(model.T, rule=None_ENS_CL)    
 
     # VARIABLE Energía de refrigeración no suministrada
-    model.PCL_NS = Var(model.T, domain=NonNegativeReals)
+    #model.PCL_NS = Var(model.T, domain=NonNegativeReals)
     
     if data_model["load_cl"]["active"]:
         if data_model["load_cl"]["type"] == "fixed": 
@@ -176,21 +176,21 @@ def create_model(data_model):
         elif data_model["load_cl"]["type"] == "variable":
             model.load_cl = Param(model.T, initialize= T_dict(T, data_model["load_cl"]["value"]))
             
-        if data_model["load_cl"]["ENS_CL"]["active"]:        
-            if data_model["load_cl"]["ENS_CL"]["type"] == "fixed":            
-                model.cost_ens_cl = Param(model.T, initialize= T_dict(T, np.repeat(data_model["load_cl"]["ENS_CL"]["value"], len(T))))
-            elif data_model["load_cl"]["ENS_CL"]["type"] == "variable":
-                model.cost_ens_cl = Param(model.T, initialize= T_dict(T, data_model["load_cl"]["ENS_CL"]["value"]))
-        else:
-            create_ens_cl_null()
+        #if data_model["load_cl"]["ENS_CL"]["active"]:        
+        #    if data_model["load_cl"]["ENS_CL"]["type"] == "fixed":            
+        #        model.cost_ens_cl = Param(model.T, initialize= T_dict(T, np.repeat(data_model["load_cl"]["ENS_CL"]["value"], len(T))))
+        #    elif data_model["load_cl"]["ENS_CL"]["type"] == "variable":
+        #        model.cost_ens_cl = Param(model.T, initialize= T_dict(T, data_model["load_cl"]["ENS_CL"]["value"]))
+        #else:
+        #    create_ens_cl_null()
     else:
         model.load_cl = Param(model.T, initialize= T_dict(T, np.repeat(0, len(T))))
-        create_ens_cl_null()       
+        #create_ens_cl_null()       
 
 
     """
     -----------------------------------------------------------------------------------------
-    ----------SETS Y PARÁMETROS TÉCNICOS DE LOS PANELES SOLARES ----------
+    ----------SETS Y PARÁMETROS TÉCNICOS DE LOS PANELES SOLARES ELÉCTRICOS----------
     -----------------------------------------------------------------------------------------
     """
 
@@ -207,7 +207,28 @@ def create_model(data_model):
         # PARÁMETRO-NULO Características tecnologías de paneles solares
         PV_none_df = pd.DataFrame(index=["C_inst", "C_OM_y"], data={"None":[0,0]})
         model.pv_f = Param(PV_none_df.index.to_list(), model.pv_u, initialize = create_dict(PV_none_df), domain = Any)
+
+    """
+    -----------------------------------------------------------------------------------------
+    ----------SETS Y PARÁMETROS TÉCNICOS DE LOS PANELES SOLARES TÉRMICOS ----------
+    -----------------------------------------------------------------------------------------
+    """ 
+
+    
+    if data_model["pv_thermal"]["active"]:
         
+        # SET Tecnologías de paneles solares térmicos
+        model.pt_u = Set(initialize=data_model["pv_thermal"]["type"].columns.tolist()) 
+        # PARÁMETRO Características tecnologías de paneles solares térmicos
+        model.pt_f = Param(data_model["pv_thermal"]["type"].index.to_list(), model.pt_u, initialize = create_dict(data_model["pv_thermal"]["type"]), domain = Any)
+
+    else:
+        # SET-NULO Tecnologías de paneles solares térmicos
+        model.pt_u = Set(initialize=["None"])
+        # PARÁMETRO-NULO Características tecnologías de paneles solares térmicos
+        PV_none_df = pd.DataFrame(index=["C_inst", "C_OM_y"], data={"None":[0,0]})
+        model.pt_f = Param(PV_none_df.index.to_list(), model.pt_u, initialize = create_dict(PV_none_df), domain = Any)
+
 
     """
     -----------------------------------------------------------------------------------------
@@ -384,6 +405,85 @@ def create_model(data_model):
         model.None_Gen_fun = Constraint(model.T,rule=None_Gen_fun)  
 
     
+    """
+    -----------------------------------------------------------------------------------------
+            ----------PARÁMETROS Y VARIABLES DE LOS ENFRIADORES DE ABSORCIÓN----------
+    -----------------------------------------------------------------------------------------
+    """ 
+
+    if data_model["abs_chillers"]["active"]:
+        # SET Tecnologías de enfriadores de absorción
+        model.ac_u = Set(initialize=data_model["abs_chillers"]["type"].columns.tolist())
+        # PARÁMETRO Características tecnologías de enfriadores de absorción
+        model.ac_f = Param(data_model["abs_chillers"]["type"].index.to_list(), model.ac_u, initialize = create_dict(data_model["abs_chillers"]["type"]), domain = Any)
+    else:
+        # SET-NULO Tecnologías de enfriadores de absorción
+        model.ac_u = Set(initialize=["None"])
+
+        # PARÁMETRO-NULO Características tecnologías de enfriadores de absorción
+        AC_none_df = pd.DataFrame(index=["C_inst", "C_OM_kWh"], data={"None":[0,0]})
+        model.ac_f = Param(AC_none_df.index.to_list(), model.ac_u, initialize = create_dict(AC_none_df), domain = Any)
+
+
+    # VARIABLE Número de enfriadores de absorción
+    model.X_AC = Var(model.ac_u, domain=NonNegativeIntegers)  
+    # VARIABLE Binaria, el enfriador de absorción está en funcionamiento
+    model.Y_AC = Var(model.T, model.ac_u, within=Binary)     
+    # VARIABLE Potencia de enfriamiento generada por los enfriadores de absorción [kWcl]
+    model.PCL_AC = Var(model.T, model.ac_u,domain=NonNegativeReals)
+    # VARIABLE Auxiliar potencia nominal enfriadores de absorción (restricciones Eficiencia de carga parcial) [kWcl]
+    model.PNOM_AC_AUX = Var(model.T, model.ac_u,domain=NonNegativeReals)
+    # VARIABLE Potencia térmica de los CHP a los enfriadores de absorción [kWth]
+    model.PTH_CHP_AC = Var(model.T, model.ac_u, domain=NonNegativeReals)
+    # VARIABLE Potencia térmica de los calentadores eléctricos a los enfriadores de absorción [kWth]
+    model.PTH_EH_AC = Var(model.T, model.ac_u, domain=NonNegativeReals)
+    # VARIABLE Potencia térmica de los calentadores eléctricos a los enfriadores de absorción [kWth]
+    model.PTH_BOI_AC = Var(model.T, model.ac_u, domain=NonNegativeReals)
+
+    
+    if data_model["abs_chillers"]["active"]:
+        
+        # RESTRICCIÓN Límite superior de potencia de salida del enfriador de absorción
+        def max_p_ac(m,t,tac):
+            return m.PCL_AC[t,tac] <= m.ac_f['P_cl_nom',tac]*m.X_AC[tac]
+        model.max_p_ac = Constraint(model.T, model.ac_u, rule=max_p_ac)
+
+        # RESTRICCIÓN Límite inferior de potencia de salida del enfriador de absorción
+        def min_p_ac(m,t,tac):
+            return m.PCL_AC[t,tac] + m.big_M*(1-m.Y_AC[t,tac]) >= m.ac_f['P_min_porc',tac]*m.ac_f['P_cl_nom',tac]*m.X_AC[tac] 
+        model.min_p_ac = Constraint(model.T, model.ac_u, rule=min_p_ac)
+
+        # RESTRICCIÓN Conversión a energía de enfriamiento considerando eficiencia de carga parcial
+        def efficiency_ac(m,t,tac):
+            return m.PTH_CHP_AC[t,tac] + m.PTH_EH_AC[t,tac] + m.PTH_BOI_AC[t,tac] == m.ac_f['y_n',tac]*m.PNOM_AC_AUX[t,tac] + m.ac_f['lamd_n',tac]*m.PCL_AC[t,tac] 
+        model.efficiency_ac = Constraint(model.T, model.ac_u, rule=efficiency_ac)
+
+        # RESTRICCIÓN Restricción 1 potencia nominal auxiliar enfriadores de absorción
+        def ac_nom_aux_1(m,t,tac):
+            return m.PNOM_AC_AUX[t,tac] <= m.big_M*m.Y_AC[t,tac]
+        model.ac_nom_aux_1 = Constraint(model.T, model.ac_u, rule=ac_nom_aux_1)
+
+        # RESTRICCIÓN Restricción 2 potencia nominal auxiliar enfriadores de absorción
+        def ac_nom_aux_2(m,t,tac):
+            return m.PNOM_AC_AUX[t,tac] <= m.ac_f['P_cl_nom',tac]*m.X_AC[tac] 
+        model.ac_nom_aux_2 = Constraint(model.T, model.ac_u, rule=ac_nom_aux_2)
+
+        # RESTRICCIÓN Restricción 3 potencia nominal auxiliar enfriadores de absorción
+        def ac_nom_aux_3(m,t,tac):
+            return m.PNOM_AC_AUX[t,tac] >= m.ac_f['P_cl_nom',tac]*m.X_AC[tac] - m.big_M*(1-m.Y_AC[t,tac])
+        model.ac_nom_aux_3 = Constraint(model.T, model.ac_u, rule=ac_nom_aux_3)
+
+    else:        
+
+        # RESTRICCIÓN-NULA Variables binarias enfriadores de absorción
+        def None_bin_ac(m,tac):
+            return sum(m.Y_AC[t,tac] for t in m.T) + m.X_AC[tac] == 0
+        model.None_bin_ac = Constraint(model.ac_u, rule=None_bin_ac)
+        
+        # RESTRICCIÓN-NULA Funcionamiento enfriadores de absorción
+        def None_fun_ac(m,t,tac):
+            return m.PCL_AC[t,tac] + m.PTH_CHP_AC[t,tac] + m.PTH_EH_AC[t,tac] + m.PNOM_AC_AUX[t,tac] == 0
+        model.None_fun_ac = Constraint(model.T, model.ac_u, rule=None_fun_ac)
     
     """
     -----------------------------------------------------------------------------------------
@@ -412,6 +512,8 @@ def create_model(data_model):
     model.PTH_BOI = Var(model.T, model.boi_u,domain=NonNegativeReals)
     # VARIABLE Auxiliar potencia nominal calderas (restricciones Eficiencia de carga parcial) [kWth]
     model.PNOM_BOI_AUX = Var(model.T, model.boi_u,domain=NonNegativeReals)
+    # VARIABLE Potencia termica de las calderas a la carga [kWth]
+    model.PTH_BOI_L = Var(model.T, domain=NonNegativeReals)
     
     if data_model["boilers"]["active"]:        
         
@@ -445,6 +547,15 @@ def create_model(data_model):
             return m.PNOM_BOI_AUX[t,tboi] >= m.boi_f['P_th_nom',tboi]*m.X_BOI[tboi] - m.big_M*(1-m.Y_BOI[t,tboi])
         model.boilers_nom_aux_3 = Constraint(model.T, model.boi_u, rule=boilers_nom_aux_3)
 
+        # RESTRICCIÓN Balance de potencia térmica de las calderas
+        def PTH_balance_boi(m,t):
+            return (
+                sum(m.PTH_BOI[t,tboi] for tboi in m.boi_u) ==
+                sum(m.PTH_BOI_AC[t,tac] for tac in m.ac_u) # A los enfriadores de absorsión
+                + m.PTH_BOI_L[t]
+            )
+        model.PTH_balance_boi = Constraint(model.T, rule=PTH_balance_boi)
+
     else:        
 
         # RESTRICCIÓN-NULA Variables binarias caldera
@@ -453,85 +564,13 @@ def create_model(data_model):
         model.None_bin_boiler = Constraint(model.boi_u, rule=None_bin_boiler)
         
         # RESTRICCIÓN-NULA Funcionamiento caldera
-        def None_fun_boiler(m,t,tboi):
-            return m.PTH_BOI[t,tboi] + m.PPE_GAS_BOI[t,tboi] + m.PNOM_BOI_AUX[t,tboi] == 0
-        model.None_fun_boiler = Constraint(model.T, model.boi_u, rule=None_fun_boiler)
-
-    
-    """
-    -----------------------------------------------------------------------------------------
-            ----------PARÁMETROS Y VARIABLES DE LOS ENFRIADORES DE ABSORCIÓN----------
-    -----------------------------------------------------------------------------------------
-    """ 
-
-    if data_model["abs_chillers"]["active"]:
-        # SET Tecnologías de enfriadores de absorción
-        model.ac_u = Set(initialize=data_model["abs_chillers"]["type"].columns.tolist())
-        # PARÁMETRO Características tecnologías de enfriadores de absorción
-        model.ac_f = Param(data_model["abs_chillers"]["type"].index.to_list(), model.ac_u, initialize = create_dict(data_model["abs_chillers"]["type"]), domain = Any)
-    else:
-        # SET-NULO Tecnologías de enfriadores de absorción
-        model.ac_u = Set(initialize=["None"])
-
-        # PARÁMETRO-NULO Características tecnologías de enfriadores de absorción
-        AC_none_df = pd.DataFrame(index=["C_inst", "C_OM_kWh"], data={"None":[0,0]})
-        model.ac_f = Param(AC_none_df.index.to_list(), model.ac_u, initialize = create_dict(AC_none_df), domain = Any)
-
-
-    # VARIABLE Número de enfriadores de absorción
-    model.X_AC = Var(model.ac_u, domain=NonNegativeIntegers)  
-    # VARIABLE Binaria, el enfriador de absorción está en funcionamiento
-    model.Y_AC = Var(model.T, model.ac_u, within=Binary)     
-    # VARIABLE Potencia de enfriamiento generada por los enfriadores de absorción [kWcl]
-    model.PCL_AC = Var(model.T, model.ac_u,domain=NonNegativeReals)
-    # VARIABLE Auxiliar potencia nominal enfriadores de absorción (restricciones Eficiencia de carga parcial) [kWcl]
-    model.PNOM_AC_AUX = Var(model.T, model.ac_u,domain=NonNegativeReals)
-    # VARIABLE Potencia térmica de los CHP a los enfriadores de absorción [kWth]
-    model.PTH_CHP_AC = Var(model.T, model.ac_u, domain=NonNegativeReals)
-    
-    if data_model["abs_chillers"]["active"]:
-        
-        # RESTRICCIÓN Límite superior de potencia de salida del enfriador de absorción
-        def max_p_ac(m,t,tac):
-            return m.PCL_AC[t,tac] <= m.ac_f['P_cl_nom',tac]*m.X_AC[tac]
-        model.max_p_ac = Constraint(model.T, model.ac_u, rule=max_p_ac)
-
-        # RESTRICCIÓN Límite inferior de potencia de salida del enfriador de absorción
-        def min_p_ac(m,t,tac):
-            return m.PCL_AC[t,tac] + m.big_M*(1-m.Y_AC[t,tac]) >= m.ac_f['P_min_porc',tac]*m.ac_f['P_cl_nom',tac]*m.X_AC[tac] 
-        model.min_p_ac = Constraint(model.T, model.ac_u, rule=min_p_ac)
-
-        # RESTRICCIÓN Conversión a energía de enfriamiento considerando eficiencia de carga parcial
-        def efficiency_ac(m,t,tac):
-            return m.PTH_CHP_AC[t,tac] == m.ac_f['y_n',tac]*m.PNOM_AC_AUX[t,tac] + m.ac_f['lamd_n',tac]*m.PCL_AC[t,tac] 
-        model.efficiency_ac = Constraint(model.T, model.ac_u, rule=efficiency_ac)
-
-        # RESTRICCIÓN Restricción 1 potencia nominal auxiliar enfriadores de absorción
-        def ac_nom_aux_1(m,t,tac):
-            return m.PNOM_AC_AUX[t,tac] <= m.big_M*m.Y_AC[t,tac]
-        model.ac_nom_aux_1 = Constraint(model.T, model.ac_u, rule=ac_nom_aux_1)
-
-        # RESTRICCIÓN Restricción 2 potencia nominal auxiliar enfriadores de absorción
-        def ac_nom_aux_2(m,t,tac):
-            return m.PNOM_AC_AUX[t,tac] <= m.ac_f['P_cl_nom',tac]*m.X_AC[tac] 
-        model.ac_nom_aux_2 = Constraint(model.T, model.ac_u, rule=ac_nom_aux_2)
-
-        # RESTRICCIÓN Restricción 3 potencia nominal auxiliar enfriadores de absorción
-        def ac_nom_aux_3(m,t,tac):
-            return m.PNOM_AC_AUX[t,tac] >= m.ac_f['P_cl_nom',tac]*m.X_AC[tac] - m.big_M*(1-m.Y_AC[t,tac])
-        model.ac_nom_aux_3 = Constraint(model.T, model.ac_u, rule=ac_nom_aux_3)
-
-    else:        
-
-        # RESTRICCIÓN-NULA Variables binarias enfriadores de absorción
-        def None_bin_ac(m,tac):
-            return sum(m.Y_AC[t,tac] for t in m.T) + m.X_AC[tac] == 0
-        model.None_bin_ac = Constraint(model.ac_u, rule=None_bin_ac)
-        
-        # RESTRICCIÓN-NULA Funcionamiento enfriadores de absorción
-        def None_fun_ac(m,t,tac):
-            return m.PCL_AC[t,tac] + m.PTH_CHP_AC[t,tac] + m.PNOM_AC_AUX[t,tac] == 0
-        model.None_fun_ac = Constraint(model.T, model.ac_u, rule=None_fun_ac)
+        def None_fun_boiler(m,t):
+            return (
+                sum(m.PTH_BOI[t,tboi] + m.PPE_GAS_BOI[t,tboi] + m.PNOM_BOI_AUX[t,tboi] for tboi in m.boi_u)
+                + sum(m.PTH_BOI_AC[t,tac] for tac in m.ac_u) + m.PTH_BOI_L[t]
+                == 0
+            )
+        model.None_fun_boiler = Constraint(model.T, rule=None_fun_boiler)      
         
 
     """
@@ -569,6 +608,8 @@ def create_model(data_model):
     model.PEL_CHP_L = Var(model.T, domain=NonNegativeReals)    
     # VARIABLE Potencia eléctrica de los CHP a las baterias [kWel]
     model.PEL_CHP_B = Var(model.ch_u, model.bat_u, model.T, domain=NonNegativeReals)  
+    # VARIABLE Potencia eléctrica de los CHP a la red [kWel]
+    model.PEL_CHP_G = Var(model.ch_u, model.bat_u, model.T, domain=NonNegativeReals)  
         
     # VARIABLE Potencia térmica generada por los CHP [kWth]
     model.PTH_CHP = Var(model.T, model.chp_u,domain=NonNegativeReals)     
@@ -621,7 +662,7 @@ def create_model(data_model):
 
         # RESTRICCIÓN Balance de potencia eléctrica de los CHPs
         def PTH_balance_el_chp(m,t):
-            return m.PEL_CHP_L[t] + sum(m.PEL_CHP_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u) == sum(m.PEL_CHP[t,tchp] for tchp in m.chp_u)
+            return m.PEL_CHP_L[t] + m.PEL_CHP_G[t] + sum(m.PEL_CHP_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u) == sum(m.PEL_CHP[t,tchp] for tchp in m.chp_u)
         model.PTH_balance_el_chp = Constraint(model.T, rule=PTH_balance_el_chp)
 
     else:        
@@ -638,7 +679,7 @@ def create_model(data_model):
 
         # RESTRICCIÓN-NULA Funcionamiento CHPs salidas
         def None_fun_chp_t(m,t):
-            return m.PEL_CHP_L[t] + sum(m.PEL_CHP_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u) + m.PTH_CHP_L[t] + m.PTH_CHP_CUR[t] == 0
+            return m.PEL_CHP_L[t] + m.PEL_CHP_G[t] + sum(m.PEL_CHP_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u) + m.PTH_CHP_L[t] + m.PTH_CHP_CUR[t] == 0
         model.None_fun_chp_t = Constraint(model.T, rule=None_fun_chp_t)
 
 
@@ -900,6 +941,8 @@ def create_model(data_model):
     model.PEL_EH = Var(model.T, model.eh_u, domain=NonNegativeReals)
     # VARIABLE Potencia de la red eléctrica a los calentadores eléctricos                           
     model.PEL_G_EH = Var(model.T, domain=NonNegativeReals)  
+    # VARIABLE Potencia térmica de los calentadores eléctricos a la carga                          
+    model.PTH_EH_L = Var(model.T, domain=NonNegativeReals)  
         
     if data_model["el_heaters"]["active"]:        
         
@@ -922,11 +965,22 @@ def create_model(data_model):
         def PEL_balance_eh(m,t):
             return (
                 sum(m.PEL_EH[t,teh] for teh in m.eh_u) == 
-                sum(sum(m.PEL_B_EH[tch,tb,t] for tb in m.bat_u) + 
-                m.ch_f['n_dcac',tch]*m.PEL_PV_EH[tch,t] for tch in m.ch_u) + m.PEL_G_EH[t] + 
-                m.PEL_WT_EH[t] + m.PEL_D_EH[t]
+                sum(sum(m.PEL_B_EH[tch,tb,t] for tb in m.bat_u) + # De las baterías
+                m.ch_f['n_dcac',tch]*m.PEL_PV_EH[tch,t] for tch in m.ch_u) + # De los paneles solares
+                m.PEL_G_EH[t] + # De la red
+                m.PEL_WT_EH[t] + # De las turbinas eólicas
+                m.PEL_D_EH[t] # Del diesel
             )
-        model.PEL_balance_eh = Constraint(model.T,rule=PEL_balance_eh) 
+        model.PEL_balance_eh = Constraint(model.T,rule=PEL_balance_eh)
+
+        # RESTRICCIÓN Balance de potencia térmica de los calentadores eléctricos 
+        def PTH_balance_eh(m,t):
+            return (
+                sum(m.PTH_EH[t,teh] for teh in m.eh_u) == 
+                sum(m.PTH_EH_AC[t,tac] for tac in m.ac_u) + # Al enfriador de absorbsión
+                m.PTH_EH_L[t] # A la carga
+            )
+        model.PTH_balance_eh = Constraint(model.T,rule=PTH_balance_eh)
 
     else:       
 
@@ -937,7 +991,7 @@ def create_model(data_model):
         
         # RESTRICCIÓN NULA Funcionamiento enfriadores eléctricos
         def None_fun_eh(m,t,teh):
-            return m.PTH_EH[t,teh] + m.PEL_EH[t,teh] == 0
+            return m.PTH_EH[t,teh] + m.PEL_EH[t,teh] + m.PTH_EH_L[t] == 0
         model.None_fun_eh = Constraint(model.T, model.eh_u, rule=None_fun_eh)
 
 
@@ -1055,7 +1109,7 @@ def create_model(data_model):
         
         # RESTRICCIÓN Balance y potencia límite de venta red eléctrica
         def PpvG_lim_rule(m,t):
-            return sum(m.PEL_PV_G[tch,t] for tch in m.ch_u) + m.PEL_WT_G[t] <= m.grid_el_av[t]*m.max_p_grid_el_sell
+            return sum(m.PEL_PV_G[tch,t] for tch in m.ch_u) + m.PEL_WT_G[t] + m.PEL_CHP_G[t] <= m.grid_el_av[t]*m.max_p_grid_el_sell
         model.PpvG_lim=Constraint(model.T,rule=PpvG_lim_rule)
 
         # PARÁMETRO Precio de compra de energía de la red eléctrica
@@ -1080,7 +1134,13 @@ def create_model(data_model):
 
         # RESTRICCIÓN NULA Balance variables de la red eléctrica
         def None_grid(m,t):
-            return m.PEL_G_L[t] + m.PEL_G_EC[t] + m.PEL_G_EH[t] + sum(m.PEL_G_B[tch,tb,t] for tb in m.bat_u for tch in m.ch_u) + sum(m.PEL_PV_G[tch,t] for tch in m.ch_u) + m.PEL_WT_G[t] == 0
+            return (
+                m.PEL_G_L[t] + m.PEL_G_EC[t] + m.PEL_G_EH[t] 
+                + sum(m.PEL_G_B[tch,tb,t] for tb in m.bat_u for tch in m.ch_u) 
+                + sum(m.PEL_PV_G[tch,t] for tch in m.ch_u) + m.PEL_WT_G[t] 
+                + m.PEL_CHP_G[t]
+                == 0
+            )
         model.None_grid=Constraint(model.T,rule=None_grid)
 
 
@@ -1135,12 +1195,24 @@ def create_model(data_model):
 
     # RESTRICCIÓN Balance de Potencia de la carga térmica
     def PTH_balance_load(m,t):
-        return sum(m.PTH_BOI[t,tboi] for tboi in m.boi_u) + sum(m.PTH_EH[t,teh] for teh in m.eh_u) + m.PTH_CHP_L[t] + m.PTH_NS[t] == m.load_th[t] + sum(m.L_NEEDS[t,nds,"Calor"] for nds in model.needs)
+        return (
+            m.PTH_BOI_L[t] # De las calderas
+            + m.PTH_EH_L[t] # De los calentadores eléctricos
+            + m.PTH_CHP_L[t] # De los CHP
+            == 
+            m.load_th[t] + sum(m.L_NEEDS[t,nds,"Calor"] for nds in model.needs)
+        )
     model.PTH_balance_load=Constraint(model.T,rule=PTH_balance_load)
 
     # RESTRICCIÓN Balance de Potencia de la carga de refrigeración
     def PCL_balance_load(m,t):
-        return sum(m.PCL_AC[t,tac] for tac in m.ac_u) + sum(m.PCL_EC[t,tec] for tec in m.ec_u) + m.PCL_NS[t] == m.load_cl[t] + sum(m.L_NEEDS[t,nds,"Refrigeracion"] for nds in model.needs)
+        return (
+            sum(m.PCL_AC[t,tac] for tac in m.ac_u) 
+            + sum(m.PCL_EC[t,tec] for tec in m.ec_u) 
+            #+ m.PCL_NS[t] 
+            == 
+            m.load_cl[t] + sum(m.L_NEEDS[t,nds,"Refrigeracion"] for nds in model.needs)
+        )
     model.PCL_balance_load=Constraint(model.T,rule=PCL_balance_load)    
   
     
@@ -1193,16 +1265,21 @@ def create_model(data_model):
     def ComputeSecondStageCost(m):
         return VPN_FS*sum(
             m.price_buy_grid_el[t]*(m.PEL_G_L[t] + m.PEL_G_EC[t] + m.PEL_G_EH[t] + sum(m.PEL_G_B[tch,tb,t] for tb in m.bat_u for tch in m.ch_u))
+            
             + m.price_buy_grid_gas[t]*(sum(m.PPE_GAS_BOI[t,tboi] for tboi in m.boi_u) + sum(m.PPE_GAS_CHP[t,tchp] for tchp in m.chp_u))
+            
             + m.d_fuel_cost*(m.d_f_min*m.Y_D[t] + m.d_fm*(m.PEL_D_L[t] + m.PEL_D_EC[t] + m.PEL_D_EH[t] + sum(m.PEL_D_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u))) 
+            
             + m.d_cost_om*m.Y_D[t]
             + sum(m.PTH_BOI[t,tboi]*m.boi_f['C_OM_kWh',tboi] for tboi in m.boi_u)
             + sum(m.PTH_EH[t,teh]*m.eh_f['C_OM_kWh',teh] for teh in m.eh_u)
             + sum(m.PEL_CHP[t,tchp]*m.chp_f['C_OM_kWh',tchp] for tchp in m.chp_u)
             + sum(m.PCL_AC[t,tac]*m.ac_f['C_OM_kWh',tac] for tac in m.ac_u)
             + sum(m.PCL_EC[t,tec]*m.ec_f['C_OM_kWh',tec] for tec in m.ec_u)
-            + m.cost_ens_el[t]*m.PEL_NS[t] + m.cost_ens_th[t]*m.PTH_NS[t] + m.cost_ens_cl[t]*m.PCL_NS[t]
-            - m.price_sell_grid_el[t]*(sum(m.ch_f['n_dcac',tch]*m.PEL_PV_G[tch,t] for tch in m.ch_u) + m.PEL_WT_G[t])
+            
+            + m.cost_ens_el[t]*m.PEL_NS[t] #+ m.cost_ens_th[t]*m.PTH_NS[t] + m.cost_ens_cl[t]*m.PCL_NS[t]
+            
+            - m.price_sell_grid_el[t]*(sum(m.ch_f['n_dcac',tch]*m.PEL_PV_G[tch,t] for tch in m.ch_u) + m.PEL_WT_G[t] + m.PEL_CHP_G[t])
             - m.EnvC*sum(sum(m.X_PV[tpv,tch]*m.p_pv_gen[t,tpv] for tpv in m.pv_u) - m.PEL_PV_CUR[tch,t] for tch in m.ch_u)
             - m.EnvC*(sum(m.X_WT[tt]*m.p_wt_gen[t,tt] for tt in m.wt_u) - m.PEL_WT_CUR[t]) 
             
