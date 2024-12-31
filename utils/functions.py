@@ -178,7 +178,7 @@ def power_PV_calculation(
         if type == "electric":
             P_mpp[k] = (PVtype.loc['P_stc',k]*(1+(PVtype.loc['Tc_Pmax',k]/100)*(T_panel-25))*(df['IRR'].values/1000))/1000
         elif type == "thermal":
-            P_mpp[k] = PVtype.loc['A',k]*PVtype.loc['FR',k]*(PVtype.loc['lambda_alpha',k]*df['IRR'].values - PVtype.loc['U_loss',k]*(T_panel - df['Temperature'].values))
+            P_mpp[k] = (PVtype.loc['A',k]*PVtype.loc['FR',k]*(PVtype.loc['lambda_alpha',k]*df['IRR'].values - PVtype.loc['U_loss',k]*(T_panel - df['Temperature'].values)))/1000
                 
     return P_mpp
 

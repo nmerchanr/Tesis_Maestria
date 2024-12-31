@@ -229,7 +229,7 @@ def create_model(data_model):
         PV_none_df = pd.DataFrame(index=["C_inst", "C_OM_y"], data={"None":[0,0]})
         model.pt_f = Param(PV_none_df.index.to_list(), model.pt_u, initialize = create_dict(PV_none_df), domain = Any)
 
-
+    
     """
     -----------------------------------------------------------------------------------------
     ----------SETS Y PARÁMETROS TÉCNICOS DE LAS BATERÍAS ----------
@@ -437,8 +437,10 @@ def create_model(data_model):
     model.PTH_CHP_AC = Var(model.T, model.ac_u, domain=NonNegativeReals)
     # VARIABLE Potencia térmica de los calentadores eléctricos a los enfriadores de absorción [kWth]
     model.PTH_EH_AC = Var(model.T, model.ac_u, domain=NonNegativeReals)
-    # VARIABLE Potencia térmica de los calentadores eléctricos a los enfriadores de absorción [kWth]
+    # VARIABLE Potencia térmica de las calderas a los enfriadores de absorción [kWth]
     model.PTH_BOI_AC = Var(model.T, model.ac_u, domain=NonNegativeReals)
+    # VARIABLE Potencia térmica de los paneles solares térmicos a los enfriadores de absorción [kWth]
+    model.PTH_PT_AC = Var(model.T, model.ac_u, domain=NonNegativeReals)
 
     
     if data_model["abs_chillers"]["active"]:
@@ -455,7 +457,7 @@ def create_model(data_model):
 
         # RESTRICCIÓN Conversión a energía de enfriamiento considerando eficiencia de carga parcial
         def efficiency_ac(m,t,tac):
-            return m.PTH_CHP_AC[t,tac] + m.PTH_EH_AC[t,tac] + m.PTH_BOI_AC[t,tac] == m.ac_f['y_n',tac]*m.PNOM_AC_AUX[t,tac] + m.ac_f['lamd_n',tac]*m.PCL_AC[t,tac] 
+            return m.PTH_CHP_AC[t,tac] + m.PTH_EH_AC[t,tac] + m.PTH_BOI_AC[t,tac] + m.PTH_PT_AC[t,tac] == m.ac_f['y_n',tac]*m.PNOM_AC_AUX[t,tac] + m.ac_f['lamd_n',tac]*m.PCL_AC[t,tac] 
         model.efficiency_ac = Constraint(model.T, model.ac_u, rule=efficiency_ac)
 
         # RESTRICCIÓN Restricción 1 potencia nominal auxiliar enfriadores de absorción
@@ -609,7 +611,7 @@ def create_model(data_model):
     # VARIABLE Potencia eléctrica de los CHP a las baterias [kWel]
     model.PEL_CHP_B = Var(model.ch_u, model.bat_u, model.T, domain=NonNegativeReals)  
     # VARIABLE Potencia eléctrica de los CHP a la red [kWel]
-    model.PEL_CHP_G = Var(model.ch_u, model.bat_u, model.T, domain=NonNegativeReals)  
+    model.PEL_CHP_G = Var(model.T, domain=NonNegativeReals)  
         
     # VARIABLE Potencia térmica generada por los CHP [kWth]
     model.PTH_CHP = Var(model.T, model.chp_u,domain=NonNegativeReals)     
@@ -681,6 +683,38 @@ def create_model(data_model):
         def None_fun_chp_t(m,t):
             return m.PEL_CHP_L[t] + m.PEL_CHP_G[t] + sum(m.PEL_CHP_B[tch,tb,t] for tch in m.ch_u for tb in m.bat_u) + m.PTH_CHP_L[t] + m.PTH_CHP_CUR[t] == 0
         model.None_fun_chp_t = Constraint(model.T, rule=None_fun_chp_t)
+
+
+    """
+    -----------------------------------------------------------------------------------------
+    ----------PARÁMETROS, VARIABLES Y RESTRICCIONES DE PANELES SOLARES TÉRMICOS----------
+    -----------------------------------------------------------------------------------------
+    """    
+    # VARIABLE Número de paneles solares 
+    model.X_PT = Var(model.pt_u, domain=NonNegativeIntegers)   
+    # VARIABLE Potencia del panel dirigida a la carga [kWel] 
+    model.PTH_PT_L = Var(model.T, domain=NonNegativeReals)     
+    # VARIABLE Potencia PV no utilizada [kWel]                         
+    model.PTH_PT_CUR = Var(model.T, domain=NonNegativeReals)     
+   
+
+    if data_model["pv_thermal"]["active"]:
+
+        data_model["pv_thermal"]["Pmpp"].index = T
+        # PARÁMETRO Potencia generada por cada tecnología de panel solar térmico
+        model.p_pt_gen = Param(model.T, model.pt_u, initialize = create_dict(data_model["pv_thermal"]["Pmpp"]))
+        
+        # RESTRICCIÓN Balance de Potencia PT 
+        def PT_balance_rule(m,t):
+            return m.PTH_PT_L[t] + m.PTH_PT_CUR[t] + sum(m.PTH_PT_AC[t,tac] for tac in m.ac_u) == sum(m.X_PT[tpt]*m.p_pt_gen[t,tpt] for tpt in m.pt_u)
+        model.PT_balance_rule = Constraint(model.T,rule = PT_balance_rule)
+
+    else:
+
+        # RESTRICCIÓN-NULA Balance de Potencia PT 
+        def PT_balance_rule(m,t):
+            return m.PTH_PT_L[t] + m.PTH_PT_CUR[t] + sum(m.PTH_PT_AC[t,tac] for tac in m.ac_u) == 0
+        model.PT_balance_rule = Constraint(model.T,rule = PT_balance_rule)
 
 
     """
@@ -788,13 +822,14 @@ def create_model(data_model):
             return m.X_B[tb,tch] == m.X_Bs[tb,tch]*np.floor(m.ch_f['V_n_batt',tch]/m.bat_f['V_nom',tb])
         model.Batt_num_rule=Constraint(model.bat_u, model.ch_u,rule=Batt_num_rule)
 
+        model.SoC_0 = Param(initialize = data_model["batteries"]["soc_0"]) 
         # RESTRICCIÓN Cálculo de estado de carga en baterías cada hora
         def Batt_ts_rule(m,tb,t):#
             if t > m.T.first():
                 return (m.SOC_B[tb,t] == m.SOC_B[tb,t-1]*(1-m.bat_f['Auto_des',tb]) + sum(m.bat_f['n',tb]*m.delta_t*(m.PEL_PV_B[tch,tb,t] + m.ch_f['n_acdc',tch]*(m.PEL_D_B[tch,tb,t] + m.PEL_CHP_B[tch,tb,t] + m.PEL_G_B[tch,tb,t] + m.PEL_WT_B[tch,tb,t])) -
                         (m.PEL_B_L[tch,tb,t] + m.PEL_B_EC[tch,tb,t] + m.PEL_B_EH[tch,tb,t])/(m.bat_f['n',tb]*m.ch_f['n_dcac',tch]) for tch in m.ch_u))
             else:
-                return m.SOC_B[tb,t] == m.bat_f['Cap_nom',tb]*sum(m.X_B[tb,tch] for tch in m.ch_u)
+                return m.SOC_B[tb,t] == m.bat_f['Cap_nom',tb]*sum(m.X_B[tb,tch] for tch in m.ch_u)*m.SoC_0
         model.Batt_ts=Constraint(model.bat_u, model.T,rule=Batt_ts_rule)
 
         # RESTRICCIÓN Capacidad mínima de baterías 
@@ -1186,9 +1221,13 @@ def create_model(data_model):
     # RESTRICCIÓN Balance de Potencia de la carga eléctrica
     def PEL_balance_load(m,t):
         return (
-            m.PEL_G_L[t]+ sum(m.PEL_B_L[tch,tb,t] for tb in m.bat_u for tch in m.ch_u) 
-            + sum(m.ch_f['n_dcac',tch]*m.PEL_PV_L[tch,t] for tch in m.ch_u) + m.PEL_D_L[t] 
-            + m.PEL_CHP_L[t] + m.PEL_WT_L[t] + m.PEL_NS[t] 
+            m.PEL_G_L[t] # De la red eléctrica
+            + m.PEL_D_L[t] # Del generador diesel
+            + sum(m.PEL_B_L[tch,tb,t] for tb in m.bat_u for tch in m.ch_u) # De las baterías 
+            + sum(m.ch_f['n_dcac',tch]*m.PEL_PV_L[tch,t] for tch in m.ch_u) # De los paneles solares            
+            + m.PEL_CHP_L[t] # De los CHPs
+            + m.PEL_WT_L[t] # De las turbinas eólicas
+            + m.PEL_NS[t] # Potencia no suminstrada
             == m.load_el[t] + sum(m.L_NEEDS[t,nds,"Electrico"] for nds in model.needs)
         )
     model.PEL_balance_load=Constraint(model.T,rule=PEL_balance_load)
@@ -1199,6 +1238,7 @@ def create_model(data_model):
             m.PTH_BOI_L[t] # De las calderas
             + m.PTH_EH_L[t] # De los calentadores eléctricos
             + m.PTH_CHP_L[t] # De los CHP
+            + m.PTH_PT_L[t] # De los paneles solares térmicos
             == 
             m.load_th[t] + sum(m.L_NEEDS[t,nds,"Calor"] for nds in model.needs)
         )
@@ -1207,9 +1247,8 @@ def create_model(data_model):
     # RESTRICCIÓN Balance de Potencia de la carga de refrigeración
     def PCL_balance_load(m,t):
         return (
-            sum(m.PCL_AC[t,tac] for tac in m.ac_u) 
-            + sum(m.PCL_EC[t,tec] for tec in m.ec_u) 
-            #+ m.PCL_NS[t] 
+            sum(m.PCL_AC[t,tac] for tac in m.ac_u) # De los enfriadores de absorsión
+            + sum(m.PCL_EC[t,tec] for tec in m.ec_u) # De los enfriadores eléctricos
             == 
             m.load_cl[t] + sum(m.L_NEEDS[t,nds,"Refrigeracion"] for nds in model.needs)
         )
@@ -1224,14 +1263,6 @@ def create_model(data_model):
         model.PV_number=Constraint(rule=PV_number_rule)
 
 
-    #if data_model["max_invest"]["active"]:
-    #    model.MaxBudget = Param(initialize = data_model["max_invest"]["value"])
-    #    # RESTRICCIÓN Máxima inversión        
-    #    def Budget_rule(m):#
-    #        return sum(m.X_PV[tpv,tch]*(m.pv_f['C_inst',tpv]) for tch in m.ch_u for tpv in m.pv_u) + sum(m.X_B[tb,tch]*m.bat_f['C_inst',tb] for tch in m.ch_u for tb in m.bat_u) \
-    #               + sum(m.X_CH[tpv,tb,tch]*m.ch_f['C_inst',tch] for tpv in m.pv_u for tb in m.bat_u for tch in m.ch_u) + sum(m.X_WT[tt]*m.wt_f['C_inst',tt] for tt in m.wt_u) + model.d_cost_inst <= m.MaxBudget
-    #    model.Budget=Constraint(rule=Budget_rule)
-
     if data_model["environment"]["active"]:
         model.EnvC = Param(initialize = data_model["environment"]["mu"]*data_model["environment"]["Cbono"]/1e6)
     else:
@@ -1240,6 +1271,7 @@ def create_model(data_model):
     def ComputeFirstStageCost(m):
         return (
             sum(m.X_PV[tpv,tch]*(m.pv_f['C_inst',tpv] + VPN_FS*m.pv_f['C_OM_y',tpv]) for tch in m.ch_u for tpv in m.pv_u)
+            + sum(m.X_PT[tpt]*(m.pt_f['C_inst',tpt] + VPN_FS*m.pt_f['C_OM_y',tpt]) for tpt in m.pt_u)
             + sum(m.X_B[tb,tch]*(m.bat_f['C_inst',tb] + VPN_FS*m.bat_f['C_OM_y',tb]) for tch in m.ch_u for tb in m.bat_u)
             + sum(sum(m.X_CH[tpv,tb,tch] for tb in m.bat_u for tpv in m.pv_u)*(m.ch_f['C_inst',tch]  + VPN_FS*m.ch_f['C_OM_y',tch]) for tch in m.ch_u)
             + sum(m.X_WT[tt]*(m.wt_f['C_inst',tt] + VPN_FS*m.wt_f['C_OM_y',tt]) for tt in m.wt_u) 
@@ -1282,6 +1314,7 @@ def create_model(data_model):
             - m.price_sell_grid_el[t]*(sum(m.ch_f['n_dcac',tch]*m.PEL_PV_G[tch,t] for tch in m.ch_u) + m.PEL_WT_G[t] + m.PEL_CHP_G[t])
             - m.EnvC*sum(sum(m.X_PV[tpv,tch]*m.p_pv_gen[t,tpv] for tpv in m.pv_u) - m.PEL_PV_CUR[tch,t] for tch in m.ch_u)
             - m.EnvC*(sum(m.X_WT[tt]*m.p_wt_gen[t,tt] for tt in m.wt_u) - m.PEL_WT_CUR[t]) 
+            - m.EnvC*(sum(m.X_PT[tpt]*m.p_pt_gen[t,tpt] for tpt in m.pt_u) - m.PTH_PT_CUR[t])
             
         for t in m.T)
 
