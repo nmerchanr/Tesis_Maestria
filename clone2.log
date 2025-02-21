@@ -1,0 +1,31 @@
+
+Log for 'C:\Users\Nicolas\AppData\Local\Temp\tmp6f5v8orj.pyomo.lp' Clone_2 (V20.1.0.0) Thu Feb 20 21:49:49 2025
+
+Aggregator has done 37401 substitutions...
+Tried aggregator 1 time.
+LP Presolve eliminated 567757 rows and 375322 columns.
+Aggregator did 110507 substitutions.
+Reduced LP has 525373 rows, 582937 columns, and 2113512 nonzeros.
+Presolve time = 17.17 sec. (15808.90 ticks)
+
+Iteration log . . .
+Iteration:     1    Scaled infeas =        729097.238092
+Iteration: 10417    Scaled infeas =        716365.785088
+Elapsed time = 17.78 sec. (16199.75 ticks, 10417 iterations)
+Iteration: 12369    Scaled infeas =        712146.056793
+Iteration: 13358    Scaled infeas =        712133.736110
+Iteration: 13680    Scaled infeas =        712124.022000
+Iteration: 13883    Scaled infeas =        712123.402856
+Iteration: 16569    Scaled infeas =        712004.667837
+Iteration: 18720    Scaled infeas =        711955.442593
+Iteration: 21323    Scaled infeas =        706693.079186
+Iteration: 24058    Scaled infeas =        701438.643075
+Iteration: 26890    Scaled infeas =        697242.766066
+Iteration: 29721    Scaled infeas =        693045.237805
+Iteration: 32444    Scaled infeas =        692358.512070
+Iteration: 35417    Scaled infeas =        692070.516169
+Iteration: 38208    Scaled infeas =        690457.620741
+Iteration: 41163    Scaled infeas =        689389.592533
+Iteration: 44095    Scaled infeas =        683214.893320
+Iteration: 46787    Scaled infeas =        677813.003410
+Iteration: 49659    Scaled infeas =        676356.700786

@@ -1,0 +1,31 @@
+
+Log for 'C:\Users\Nicolas\AppData\Local\Temp\tmp6f5v8orj.pyomo.lp' Clone_1 (V20.1.0.0) Thu Feb 20 21:49:49 2025
+
+Aggregator has done 37401 substitutions...
+Tried aggregator 1 time.
+LP Presolve eliminated 567757 rows and 384063 columns.
+Aggregator did 119248 substitutions.
+Reduced LP has 516632 rows, 574196 columns, and 2096030 nonzeros.
+Presolve time = 17.27 sec. (15910.06 ticks)
+Symmetry aggregator did 140521 additional substitutions.
+Tried aggregator 0 times.
+No LP presolve or aggregator reductions.
+Presolve time = 0.34 sec. (184.42 ticks)
+Parallel mode: using up to 14 threads for barrier.
+
+***NOTE: Found 1 dense columns.
+
+Number of nonzeros in lower triangle of A*A' = 1588170
+Using Approximate Minimum Degree ordering
+Total time for automatic ordering = 0.39 sec. (122.57 ticks)
+Summary statistics for Cholesky factor:
+  Threads                   = 14
+  Rows in Factor            = 445095
+  Integer space required    = 971993
+  Total non-zeros in factor = 5106760
+  Total FP ops to factor    = 75722418
+ Itn      Primal Obj        Dual Obj  Prim Inf Upper Inf  Dual Inf Inf Ratio
+   0   3.1927216e+05  -8.5654017e+10  2.05e+11  0.00e+00  1.56e+06  1.00e+00
+   1   5.0745646e+05  -5.5879081e+10  1.12e+11  1.17e-06  1.02e+06  1.04e-05
+   2   6.1132115e+05  -2.3131707e+10  6.89e+10  1.40e-06  4.22e+05  1.68e-05
+   3   6.6612508e+05  -1.2636119e+10  5.69e+10  2.76e-06  2.31e+05  1.99e-05

@@ -80,6 +80,7 @@ class Maestro_Optimizacion():
             model.X_PV,
             model.X_PVs,
             model.X_PT,
+            model.X_AT,
             model.X_B,
             model.X_Bs,
             model.X_CH,
@@ -216,18 +217,31 @@ class Maestro_Optimizacion():
         self.ls.iteration_history = progreso["iteration_history"]
         self.current_objective = progreso["current_objective"]
 
-    def LS_optimizacion(self, max_iter : int = 1000, bound = 0, cargar_progreso = False):
-
-        bounds = {name: bound for name in self.escenarios}
+    def LS_optimizacion(self, max_iter : int = 500, bound = 0, cargar_progreso = False):  
         
         options = {
             "root_solver": "cplex",
             "sp_solver": "cplex",
-            "sp_solver_options" : {"threads" : 12},
-            "max_iter": max_iter,
-            "valid_eta_lb": bounds,
-            "verbose" : True
+            "sp_solver_options": {
+                "threads": 16,  # Número óptimo de hilos (demasiados pueden ralentizar)
+                "parallel": -1,  # CPLEX elige el mejor paralelismo
+                "workmem": 16384,  # Asigna más memoria (8GB)
+                "mip_tolerances_mipgap": 0.01,  # Relaja el criterio de optimalidad (0.5%)
+                "mip_tolerances_absmipgap": 1.0,  # Margen absoluto de optimalidad
+                "mip_strategy_rinsheur": 10,  # Refuerzo de heurística RINS
+                "mip_cuts_mircut": 2,  # Activar cortes MIR
+                "mip_cuts_gomory": 2,  # Activar cortes Gomory
+                "mip_cuts_flowcovers": 2,  # Activar cortes de cobertura de flujo
+                "mip_strategy_startalgorithm": 3,  # Comienza con el método de barrera
+                "mip_strategy_bbinterval": 5,  # Ajusta la exploración de ramas en Branch & Bound
+                "mip_display": 2,  # Muestra más información en la consola
+            },
+            "max_iter": max_iter,  # Limitar el número de iteraciones para no sobrecargar
+            "valid_eta_lb": {name: bound for name in self.escenarios},
+            "verbose": True
         }
+
+        print(options)
 
         self.ls = LShapedMethod(options, self.escenarios, self.scenario_creator)
 
