@@ -5,14 +5,18 @@ import pandas as pd
 import numpy as np
 import pickle
 
+from datetime import datetime
+
 import mpisppy.utils.sputils as sputils
 from mpisppy.opt.lshaped import LShapedMethod
+from mpisppy.opt.ef import ExtensiveForm
 
-from utils.functions import power_PV_calculation, calculate_WT_power
+from utils.functions import power_PV_calculation, calculate_WT_power, get_data_fromNSRDB
 from utils.model import create_model
 
 from pyomo.environ import value
 import pyomo.environ as pyo
+import unicodedata
 
 
 
@@ -115,14 +119,124 @@ class Maestro_Optimizacion():
 
     def guardar_resultados(self):
 
+        self.ls.first_stage_solution_available = True
+        self.ls.tree_solution_available = True
+
         os.makedirs(self.ruta_resultados, exist_ok=True)        
         self.ls.write_tree_solution(self.ruta_resultados, self.scenario_tree_solution_writer)
 
-        print(f"Resultados guardados con exito en: {self.ruta_resultados}")
+        with open(f"{self.ruta_resultados}/data_model.pkl", "wb") as f:
+            pickle.dump(self.data_model, f)
 
-    def corregir_indices(self, cadena):
+        print(f"Resultados guardados con exito en: {self.ruta_resultados}")
+    
+
+    def LS_optimizacion(self, max_iter : int = 500, bound = 0, method = "LS", mipgap = 0.01):  
+        
+        
+        if method == "LS":
+            options = options = {
+                "root_solver": "cplex", 
+                "sp_solver": "cplex", 
+                "tol": 1e-3, 
+                "sp_solver_options": { 
+                    "parallel": -1, 
+                    "mip tolerances mipgap": mipgap, 
+                    "mip strategy heuristicfreq": 10, 
+                    "mip strategy rinsheur": 20
+                }, 
+                "root_solver_options": { 
+                    "parallel": -1, 
+                    "mip tolerances mipgap": mipgap, 
+                    "mip strategy heuristicfreq": 10, 
+                    "mip strategy rinsheur": 20
+                },
+                "max_iter": max_iter, 
+                "valid_eta_lb": {name: bound for name in self.escenarios}, 
+                "verbose": True 
+            }
+
+            self.ls = LShapedMethod(options, self.escenarios, self.scenario_creator)
+            result = self.ls.lshaped_algorithm()
+
+        elif method == "EF":
+            options = {
+                "solver": "cplex"
+            }
+
+            solver_options = {
+                'mip tolerances mipgap' : mipgap  # 1% de tolerancia en la solución óptima
+            }
+
+            self.ls = ExtensiveForm(options, self.escenarios, self.scenario_creator)
+            results = self.ls.solve_extensive_form(solver_options=solver_options, tee = True) 
+        
+        self.guardar_resultados()            
+
+
+class Maestro_Resultados(Maestro_Optimizacion):
+
+    def __init__(self, location : dict,  estocastico : bool):       
+        
+        if estocastico:
+            self.ruta_resultados = f'RESULTADOS/{location["name_data"]}/estocastico'
+        else:
+            self.ruta_resultados = f'RESULTADOS/{location["name_data"]}/determinista'
+
+        with open(f"{self.ruta_resultados}/data_model.pkl", "rb") as f:
+            data_model = pickle.load(f)
+
+        data_model["needs"]["n"] = self.quitar_tildes_df(data_model["needs"]["n"], indice=True) 
+        data_model["needs"]["load"] = self.quitar_tildes_df(data_model["needs"]["load"], indice=True)
+
+        df_meteo, info_meteo = get_data_fromNSRDB(location["lat"], location["lon"], location["year_deterministic"])
+        date_vec = np.vectorize(datetime)
+        df_index = date_vec(df_meteo.Year.values,df_meteo.Month.values,df_meteo.Day.values, df_meteo.Hour.values, df_meteo.Minute.values, tzinfo=None)
+        df_meteo.index = df_index
+
+        super().__init__(data_model, location, df_meteo, info_meteo, estocastico)
+
+        self.leer_resultados()  
+
+
+    def quitar_tildes_df(self, df : pd.DataFrame, columnas=None, indice=False):
+        """
+        Elimina las tildes de los valores string en un DataFrame.
+
+        Parámetros:
+        - df (pd.DataFrame): DataFrame original.
+        - columnas (list, opcional): Lista de columnas donde eliminar tildes. Si es None, se aplicará a todas.
+        - indice (bool, opcional): Si es True, también eliminará tildes del índice.
+
+        Retorna:
+        - pd.DataFrame: DataFrame con los valores sin tildes.
+        """        
+
+        df_modificado = df.copy()  # Para no modificar el original
+        
+        # Aplicar a columnas específicas o a todas si no se especifican
+        if columnas is None:
+            columnas = df.columns  # Usar todas las columnas si no se especifica
+        
+        df_modificado.columns = df_modificado.columns.map(self.quitar_tildes)
+
+        # Aplicar al índice si es necesario
+        if indice:
+            df_modificado.index = df_modificado.index.map(self.quitar_tildes)
+
+        return df_modificado
+    
+    def quitar_tildes(self, s):
+        
+        if isinstance(s, str):  # Solo procesar strings
+            return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+        return s  # Devolver otros tipos de datos sin cambios
+    
+    def corregir_indices(self, cadena : str):
         # Expresión regular para encontrar los índices dentro de los corchetes
         patron = r"\[([^\]]+)\]"  # Captura lo que está dentro de los corchetes
+
+        cadena = self.quitar_tildes(cadena)
 
         def reemplazo(match):
             # Obtener el contenido dentro de los corchetes
@@ -160,7 +274,7 @@ class Maestro_Optimizacion():
     def leer_resultados(self):
         
         self.model_escenarios = {}
-
+        
         for esc in self.escenarios:
             ruta_archivo = f'{self.ruta_resultados}/{esc}.csv'
 
@@ -190,106 +304,4 @@ class Maestro_Optimizacion():
                     print("Variable no encontrada", variable)                      
 
             self.model_escenarios[esc] = model
-
-    def guardar_progreso(self, archivo="progreso_lshaped.pkl"):
-
-        path = "backup_optimizacion" 
-        os.makedirs(path, exist_ok=True)
-        
-        progreso = {
-            "eta_bounds": self.ls.eta_bounds,
-            "iteration_history": self.ls.iteration_history,
-            "current_objective": self.ls.current_objective,
-        }
-
-        with open(f"{path}/{archivo}", "wb") as f:
-            pickle.dump(progreso, f)
-        print("Progreso guardado.")
-
-    def cargar_progreso(self, archivo="progreso_lshaped.pkl"):
-        
-        path = "backup_optimizacion" 
-
-        with open(f"{path}/{archivo}", "rb") as f:
-            progreso = pickle.load(f)
-        
-        self.ls.eta_bounds = progreso["eta_bounds"]
-        self.ls.iteration_history = progreso["iteration_history"]
-        self.current_objective = progreso["current_objective"]
-
-    def LS_optimizacion(self, max_iter : int = 500, bound = 0, cargar_progreso = False):  
-        
-        options = {
-            "root_solver": "cplex",
-            "sp_solver": "cplex",
-            "sp_solver_options": {
-                "threads": 16,  # Número óptimo de hilos (demasiados pueden ralentizar)
-                "parallel": -1,  # CPLEX elige el mejor paralelismo
-                "workmem": 16384,  # Asigna más memoria (8GB)
-                "mip_tolerances_mipgap": 0.01,  # Relaja el criterio de optimalidad (0.5%)
-                "mip_tolerances_absmipgap": 1.0,  # Margen absoluto de optimalidad
-                "mip_strategy_rinsheur": 10,  # Refuerzo de heurística RINS
-                "mip_cuts_mircut": 2,  # Activar cortes MIR
-                "mip_cuts_gomory": 2,  # Activar cortes Gomory
-                "mip_cuts_flowcovers": 2,  # Activar cortes de cobertura de flujo
-                "mip_strategy_startalgorithm": 3,  # Comienza con el método de barrera
-                "mip_strategy_bbinterval": 5,  # Ajusta la exploración de ramas en Branch & Bound
-                "mip_display": 2,  # Muestra más información en la consola
-            },
-            "max_iter": max_iter,  # Limitar el número de iteraciones para no sobrecargar
-            "valid_eta_lb": {name: bound for name in self.escenarios},
-            "verbose": True
-        }
-
-        print(options)
-
-        self.ls = LShapedMethod(options, self.escenarios, self.scenario_creator)
-
-        if cargar_progreso:
-            self.cargar_progreso()
-        
-        try:
-            result = self.ls.lshaped_algorithm()
-            self.guardar_resultados()
-        except Exception as e:
-            self.guardar_progreso()
-            print(f"Error durante la ejecución: {e}")        
-
-
-class Maestro_Resultados():
-
-    def __init__(self):
-        pass
-
-    def resultado_valor_inversion_inicial(self):
-
-        m = None    
-        
-        self.componentes_inversion_inicial = {
-            "Paneles solares eléctricos" : {"index" : [m.pv_u,m.ch_u], "features" : m.pv_f},
-            "Paneles solares térmicos" : {"index": [m.pt_u], "features" : m.pt_f},
-            "Baterías" : {"index" : [m.bat_u,m.ch_u], "features" : m.bat_f},
-            "Inversores híbridos"  : {"index" : [m.pv_u,m.bat_u,m.ch_u], "indice_princ" : 2, "features" : m.ch_f},
-            "Microturbinas eólicas" : {"index": [m.wt_u], "features" : m.wt_f},
-            "Calderas" : {"index" : [m.boi_u], "features" : m.boi_f},
-            "Calentadores eléctricos" : {"index" : [m.eh_u], "features" : m.eh_f},
-            "CHPs" : {"index" : [m.chp_u], "features" : m.chp_f},
-            "Enfriadores de absorsión" : {"index" : [m.ac_u], "features" : m.ac_f},
-            "Enfriadores eléctricos" : {"index" : [m.ac_u], "features" : m.ac_f}
-        }        
-        
-        self.inversion_inicial = value(
-            sum(m.X_PV[tpv,tch]*(m.pv_f['C_inst',tpv]) for tch in m.ch_u for tpv in m.pv_u)
-            + sum(m.X_PT[tpt]*(m.pt_f['C_inst',tpt]) for tpt in m.pt_u)
-            + sum(m.X_B[tb,tch]*(m.bat_f['C_inst',tb]) for tch in m.ch_u for tb in m.bat_u)
-            + sum(sum(m.X_CH[tpv,tb,tch] for tb in m.bat_u for tpv in m.pv_u)*(m.ch_f['C_inst',tch]) for tch in m.ch_u)
-            + sum(m.X_WT[tt]*(m.wt_f['C_inst',tt]) for tt in m.wt_u) 
-            + m.d_cost_inst
-            + sum(m.X_BOI[tboi]*m.boi_f['C_inst',tboi] for tboi in m.boi_u)
-            + sum(m.X_EH[teh]*m.eh_f['C_inst',teh] for teh in m.eh_u)
-            + sum(m.X_CHP[tchp]*m.chp_f['C_inst',tchp] for tchp in m.chp_u)
-            + sum(m.X_AC[tac]*m.ac_f['C_inst',tac] for tac in m.ac_u)
-            + sum(m.X_EC[tec]*m.ec_f['C_inst',tec] for tec in m.ec_u)
-        )
-
-        print("Valor inversión inicial: ", self.inversion_inicial)
+    
