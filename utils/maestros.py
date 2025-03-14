@@ -131,7 +131,7 @@ class Maestro_Optimizacion():
         print(f"Resultados guardados con exito en: {self.ruta_resultados}")
     
 
-    def LS_optimizacion(self, max_iter : int = 500, bound = 0, method = "LS", mipgap = 0.01):  
+    def LS_optimizacion(self, max_iter : int = 500, bound = 0, method = "LS", mipgap = 0.02): 
         
         
         if method == "LS":
@@ -141,15 +141,11 @@ class Maestro_Optimizacion():
                 "tol": 1e-3, 
                 "sp_solver_options": { 
                     "parallel": -1, 
-                    "mip tolerances mipgap": mipgap, 
-                    "mip strategy heuristicfreq": 10, 
-                    "mip strategy rinsheur": 20
+                    "mip tolerances mipgap": mipgap                    
                 }, 
                 "root_solver_options": { 
                     "parallel": -1, 
-                    "mip tolerances mipgap": mipgap, 
-                    "mip strategy heuristicfreq": 10, 
-                    "mip strategy rinsheur": 20
+                    "mip tolerances mipgap": mipgap
                 },
                 "max_iter": max_iter, 
                 "valid_eta_lb": {name: bound for name in self.escenarios}, 
@@ -165,7 +161,7 @@ class Maestro_Optimizacion():
             }
 
             solver_options = {
-                'mip tolerances mipgap' : mipgap  # 1% de tolerancia en la solución óptima
+                'mip tolerances mipgap' : mipgap
             }
 
             self.ls = ExtensiveForm(options, self.escenarios, self.scenario_creator)
