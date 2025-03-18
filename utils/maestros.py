@@ -88,14 +88,14 @@ class Maestro_Optimizacion():
             model.X_B,
             model.X_Bs,
             model.X_CH,
-            model.Y_CH,
+            #model.Y_CH,
             model.X_WT,
             model.X_BOI,
             model.X_EH,
             model.X_CHP,
             model.X_AC,
             model.X_EC,
-            model.Y_NEEDS
+            #model.Y_NEEDS
         ]
 
         sputils.attach_root_node(model, model.FirstStage, vars_first_stage)
@@ -131,7 +131,7 @@ class Maestro_Optimizacion():
         print(f"Resultados guardados con exito en: {self.ruta_resultados}")
     
 
-    def LS_optimizacion(self, max_iter : int = 500, bound = 0, method = "LS", mipgap = 0.02): 
+    def LS_optimizacion(self, max_iter : int = 65, bound = 0, method = "LS", mipgap = 0.01): 
         
         
         if method == "LS":
@@ -142,10 +142,6 @@ class Maestro_Optimizacion():
                 "sp_solver_options": { 
                     "parallel": -1, 
                     "mip tolerances mipgap": mipgap                    
-                }, 
-                "root_solver_options": { 
-                    "parallel": -1, 
-                    "mip tolerances mipgap": mipgap
                 },
                 "max_iter": max_iter, 
                 "valid_eta_lb": {name: bound for name in self.escenarios}, 
