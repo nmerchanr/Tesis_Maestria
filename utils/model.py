@@ -64,22 +64,22 @@ def create_model(data_model):
         model.needs_n = Param(model.needs, model.type_energy, initialize = create_dict(data_model["needs"]["n"]), domain = Any)       
         
         # VARIABLE Binaria que indica de qué fuente se alimenta la necesidad nds
-        #model.Y_NEEDS = Var(model.needs, model.type_energy, domain=Binary)
+        model.Y_NEEDS = Var(model.needs, model.type_energy, domain=Binary)
         # VARIABLE Indica la cantidad de carga de la nececidad nds que se alimenta de la fuente toe en el tiempo t [kW]
         model.L_NEEDS = Var(model.T, model.needs, model.type_energy, domain=NonNegativeReals)
 
         # RESTRICCIÓN Indica qué fuente de energía toe va a demandar la necesidad nds en el instante t
         def balance_power_needs(m,t,nds,toe):
-            if m.needs_n[nds, toe] == 0 or toe == "Electrico":
-                return m.L_NEEDS[t,nds,toe] == 0
+            if m.needs_n[nds, toe] == 0:
+                return m.L_NEEDS[t,nds,toe] + m.Y_NEEDS[nds,toe] == 0
             else:
-                return m.L_NEEDS[t,nds,toe]*m.needs_n[nds,toe] == m.needs_load[t,nds]        
+                return m.L_NEEDS[t,nds,toe]*m.needs_n[nds,toe] == m.Y_NEEDS[nds,toe]*m.needs_load[t,nds]        
         model.balance_power_needs = Constraint(model.T, model.needs, model.type_energy, rule=balance_power_needs) 
 
         # RESTRICCIÓN Limita que la necesidad nds puede ser alimentada por un único tipo de energia toe
-        #def single_state_energy_needs(m,nds):
-        #    return sum(m.Y_NEEDS[nds,toe] for toe in model.type_energy) == 1
-        #model.single_state_energy_needs = Constraint(model.needs, rule=single_state_energy_needs) 
+        def single_state_energy_needs(m,nds):
+            return sum(m.Y_NEEDS[nds,toe] for toe in model.type_energy) == 1
+        model.single_state_energy_needs = Constraint(model.needs, rule=single_state_energy_needs) 
 
     else:
         # SET-NULO de necesidades
@@ -288,7 +288,7 @@ def create_model(data_model):
     # VARIABLE Número de inversores híbridos
     model.X_CH  = Var(model.pv_u,model.bat_u,model.ch_u, domain=NonNegativeIntegers)
     # VARIABLE Sólo un tipo de tecnología de baterías y paneles por inversor
-    #model.Y_CH = Var(model.pv_u, model.bat_u, model.ch_u, within=Binary)     
+    model.Y_CH = Var(model.pv_u, model.bat_u, model.ch_u, within=Binary)     
 
 
     """
@@ -945,21 +945,21 @@ def create_model(data_model):
     
     if data_model["inverters"]["active"] and (data_model["batteries"]["active"] or data_model["pv_modules"]["active"]):
 
-        #if data_model["inverters"]["flex"]:
-        #    # RESTRICCIÓN Se puede escoger más de una tecnología de inversor
-        #    def PV_BATT_onetype_CH(m,tch):
-        #        return sum(m.Y_CH[tpv,tb,tch] for tpv in m.pv_u for tb in m.bat_u) == 1
-        #    model.PV_onetype_CH=Constraint(model.ch_u, rule=PV_BATT_onetype_CH)       
-        #else:
-        #    # RESTRICCIÓN Se puede escoger solo una tecnología de inversor
-        #    def PV_BATT_onetype_CH(m):
-        #        return sum(m.Y_CH[tpv,tb,tch] for tpv in m.pv_u for tb in m.bat_u for tch in m.ch_u) == 1
-        #    model.PV_onetype_CH=Constraint(rule=PV_BATT_onetype_CH)
+        if data_model["inverters"]["flex"]:
+            # RESTRICCIÓN Se puede escoger más de una tecnología de inversor
+            def PV_BATT_onetype_CH(m,tch):
+                return sum(m.Y_CH[tpv,tb,tch] for tpv in m.pv_u for tb in m.bat_u) == 1
+            model.PV_onetype_CH=Constraint(model.ch_u, rule=PV_BATT_onetype_CH)       
+        else:
+            # RESTRICCIÓN Se puede escoger solo una tecnología de inversor
+            def PV_BATT_onetype_CH(m):
+                return sum(m.Y_CH[tpv,tb,tch] for tpv in m.pv_u for tb in m.bat_u for tch in m.ch_u) == 1
+            model.PV_onetype_CH=Constraint(rule=PV_BATT_onetype_CH)
 
         # RESTRICCIÓN Límite de binaria por método big_M
-        #def Bxch_rule(m,tpv,tb,tch):#
-        #    return m.X_CH[tpv,tb,tch] <= m.big_M*m.Y_CH[tpv,tb,tch]
-        #model.Bxch_rule=Constraint(model.pv_u, model.bat_u, model.ch_u,rule=Bxch_rule)     
+        def Bxch_rule(m,tpv,tb,tch):#
+            return m.X_CH[tpv,tb,tch] <= m.big_M*m.Y_CH[tpv,tb,tch]
+        model.Bxch_rule=Constraint(model.pv_u, model.bat_u, model.ch_u,rule=Bxch_rule)     
 
         # RESTRICCIÓN salida AC del inversor
         def ac_out_ch(m,tch,t):

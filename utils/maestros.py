@@ -288,7 +288,10 @@ class Maestro_Resultados(Maestro_Optimizacion):
                     if cond_bin:
                         valor = round(item["valor"])
                     else:
-                        valor = item["valor"]                
+                        if abs(item["valor"]) < 0.001:
+                            valor = 0
+                        else:
+                            valor = item["valor"]                
 
                     exec(f'model.{variable}.value = {valor}')
 
