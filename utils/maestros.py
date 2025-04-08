@@ -88,14 +88,14 @@ class Maestro_Optimizacion():
             model.X_B,
             model.X_Bs,
             model.X_CH,
-            #model.Y_CH,
+            model.Y_CH,
             model.X_WT,
             model.X_BOI,
             model.X_EH,
             model.X_CHP,
             model.X_AC,
             model.X_EC,
-            #model.Y_NEEDS
+            model.Y_NEEDS
         ]
 
         sputils.attach_root_node(model, model.FirstStage, vars_first_stage)
